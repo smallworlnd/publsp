@@ -1,0 +1,20 @@
+{
+    "keys": {
+        "lsp": [
+            {
+                "timestamp": "2025-02-16T19:16:40.687456",
+                "privkey": "nsec1m4t3hetj7ndmupdn9em3hpl2lqms83zzlf23cw2p8syl2ld6tvns3r68n5",
+                "pubkey": "npub1euttdn9xesyuwx6ltwukwwh7v443rnwww9eremh5havn22jafq8skrhtdy",
+                "note": null
+            }
+        ],
+        "customer": [
+            {
+                "timestamp": "2025-02-16T19:18:12.956527",
+                "privkey": "nsec133w53wz38xpljd0rutpesuf65nlkycamqxr2qjh3u7nvcrg6yfzs59qeut",
+                "pubkey": "npub1dmfwk5jtaxe2qlr0mw0vnrv8zttn5gelhluhjep49v2vqkcs6ucq67pxre",
+                "note": null
+            }
+        ]
+    }
+}
