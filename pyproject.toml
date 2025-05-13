@@ -19,6 +19,9 @@ dependencies = [
     "dotenv (>=0.9.9,<0.10.0)",
 ]
 
+[tool.poetry.scripts]
+publsp = "publsp.main:cli"
+
 [tool.commitizen]
 name = "cz_conventional_commits"
 tag_format = "$version"
