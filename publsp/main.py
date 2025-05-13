@@ -38,6 +38,12 @@ def register_commands(group: click.Group):
     group.add_command(customerargs)
 
 
-if __name__ == "__main__":
+def main():
+    # register our two subcommands
     register_commands(cli)
+    # invoke the click group
     cli()
+
+
+if __name__ == "__main__":
+    main()

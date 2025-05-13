@@ -1,6 +1,6 @@
 [project]
 name = "publsp"
-version = "0.1.0"
+version = "0.1.2"
 description = "A rough implementation of the bLIP51, inspired by NIP-15/69/99 spec mediated through Nostr"
 license = { text = "MIT" }
 authors = [
@@ -20,10 +20,11 @@ dependencies = [
 ]
 
 [tool.poetry.scripts]
-publsp = "publsp.main:cli"
+publsp = "publsp.main:main"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
+version = { path = "pyproject.toml", field = "project.version" }
 tag_format = "$version"
 version_scheme = "pep440"
 version_provider = "poetry"
