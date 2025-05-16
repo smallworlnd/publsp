@@ -23,9 +23,15 @@ class KeyHandler:
     TODO: nsec is kept in memory unencrypted for the duration of the script,
     need to harden this
     """
-    def __init__(self, client: str, filename: str = NOSTR_KEYS_FILE):
+    def __init__(
+            self,
+            client: str,
+            reuse_keys: bool = NostrSettings().reuse_keys,
+            filename: str = NOSTR_KEYS_FILE):
         self.filename = filename
-        self.keys = self.read_keys(client=client)
+        self.keys = self.read_keys(client=client) \
+            if reuse_keys \
+            else self.generate_keys(client=client)
         if not self.keys:
             self.keys = self.generate_keys(client=client)
 

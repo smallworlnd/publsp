@@ -39,7 +39,8 @@ class CustomerCLI(BaseCLI):
         self._running = True
 
         # core components
-        self.nostr_client = NostrClient(client_for="customer")
+        reuse_keys = kwargs.get("reuse_keys")
+        self.nostr_client = NostrClient(client_for="customer", reuse_keys=reuse_keys)
         self.rumor_handler = RumorHandler()
         self.nip17_listener = Nip17Listener(
             nostr_client=self.nostr_client,

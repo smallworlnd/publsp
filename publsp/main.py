@@ -30,7 +30,8 @@ def cli(ctx, log_level):
     level_enum = LogLevel[log_level.upper()]
     LoggerSetup(level_enum).setup_logging()
 
-    ctx.obj = {"log_level": level_enum}
+    ctx.ensure_object(dict)
+    ctx.obj["log_level"] = level_enum
 
 
 def register_commands(group: click.Group):

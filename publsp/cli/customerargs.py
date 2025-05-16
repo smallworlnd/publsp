@@ -95,6 +95,16 @@ from publsp.settings import (
     show_default=True,
     help="on-chain refund address (if desired/supported)"
 )
+@click.option(
+    "--reuse-nostr-keys",
+    "reuse_keys",
+    is_flag=True,
+    default=False,
+    help="Use this flag to reuse existing Nostr keys under "
+    "output/nostr-keys.json. Default is to "
+    "automatically regenerate new keys each time publsp is launched "
+    "for improved privacy.",
+)
 def customerargs(**kwargs):
     """
     Launch the interactive Customer REPL with all order‐building parameters.

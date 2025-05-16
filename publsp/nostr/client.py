@@ -8,7 +8,7 @@ from nostr_sdk import (
 
 from publsp.nostr.keyhandler import KeyHandler
 from publsp.nostr.relays import Relays
-from publsp.settings import Environment, EnvironmentSettings
+from publsp.settings import Environment, EnvironmentSettings, NostrSettings
 
 import logging
 
@@ -16,9 +16,9 @@ logger = logging.getLogger(name=__name__)
 
 
 class NostrClient(Client):
-    def __init__(self, client_for='lsp'):
+    def __init__(self, client_for='lsp', reuse_keys: bool = NostrSettings().reuse_keys):
         self.client_for = client_for
-        self.key_handler = KeyHandler(client=client_for)
+        self.key_handler = KeyHandler(client=client_for, reuse_keys=reuse_keys)
         self.signer = NostrSigner.keys(self.key_handler.keys)
         super().__init__(self.signer)
 

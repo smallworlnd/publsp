@@ -170,6 +170,16 @@ from pydantic import ValidationError
     show_default=True,
     help="max promised base fee"
 )
+@click.option(
+    "--reuse-nostr-keys",
+    "reuse_keys",
+    is_flag=True,
+    default=False,
+    help="Use this flag to reuse existing Nostr keys under "
+    "output/nostr-keys.json. Default is to "
+    "automatically regenerate new keys each time publsp is launched "
+    "for improved privacy.",
+)
 def lspargs(**kwargs):
     """
     Launch the interactive LSP REPL with all LN + Ad configuration.
