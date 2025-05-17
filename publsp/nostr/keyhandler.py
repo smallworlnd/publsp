@@ -27,15 +27,17 @@ class KeyHandler:
             self,
             client: str,
             reuse_keys: bool = NostrSettings().reuse_keys,
+            write_keys: bool = NostrSettings().write_keys,
             filename: str = NOSTR_KEYS_FILE):
         self.filename = filename
-        self.keys = self.read_keys(client=client) \
-            if reuse_keys \
-            else self.generate_keys(client=client)
-        if not self.keys:
-            self.keys = self.generate_keys(client=client)
+        if reuse_keys:
+            self.keys = self.read_keys(client=client)
+            if not self.keys:
+                self.keys = self.generate_keys(client=client, write_keys=write_keys)
+        else:
+            self.generate_keys(client=client, write_keys=write_keys)
 
-    def generate_keys(self, client: str):
+    def generate_keys(self, client: str, write_keys: bool):
         """
         Generate a new set of keys for either server or client.
         Asks for user input to encrypt the keys or not, and to choose a password if the former.
@@ -59,7 +61,8 @@ class KeyHandler:
         else:
             logger.info("nsec will be saved in plaintext; highly discouraged!")
 
-        self.write_keys(privkey, pubkey, client)
+        if write_keys:
+            self.write_keys(privkey, pubkey, client)
         return keys
 
     def write_keys(self, privkey, pubkey, client: str):

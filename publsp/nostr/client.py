@@ -16,9 +16,16 @@ logger = logging.getLogger(name=__name__)
 
 
 class NostrClient(Client):
-    def __init__(self, client_for='lsp', reuse_keys: bool = NostrSettings().reuse_keys):
+    def __init__(
+            self,
+            client_for='lsp',
+            write_keys: bool = NostrSettings().write_keys,
+            reuse_keys: bool = NostrSettings().reuse_keys):
         self.client_for = client_for
-        self.key_handler = KeyHandler(client=client_for, reuse_keys=reuse_keys)
+        self.key_handler = KeyHandler(
+            client=client_for,
+            reuse_keys=reuse_keys,
+            write_keys=write_keys)
         self.signer = NostrSigner.keys(self.key_handler.keys)
         super().__init__(self.signer)
 
