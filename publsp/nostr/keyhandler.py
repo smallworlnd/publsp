@@ -35,7 +35,7 @@ class KeyHandler:
             if not self.keys:
                 self.keys = self.generate_keys(client=client, write_keys=write_keys)
         else:
-            self.generate_keys(client=client, write_keys=write_keys)
+            self.keys = self.generate_keys(client=client, write_keys=write_keys)
 
     def generate_keys(self, client: str, write_keys: bool):
         """
