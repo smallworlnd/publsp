@@ -17,7 +17,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.1.5'
+VERSION = '0.1.6'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -303,10 +303,11 @@ class OrderSettings(PublspSettings):
 
 
 class NostrSettings(PublspSettings):
-    reuse_keys: Optional[bool] = Field(default=False)
-    write_keys: Optional[bool] = Field(default=True)
     nostr_keys_path: Optional[str] = Field(default='output/nostr-keys.json')
     nostr_keys_path_dev: Optional[str] = Field(default='output/nostr-keys.json.dev')
+    reuse_keys: Optional[bool] = Field(default=False)
+    write_keys: Optional[bool] = Field(default=True)
+    ask_encrypt: Optional[bool] = Field(default=True)
     nostr_relays: List[str] = Field(
         default=[
             'wss://relay.damus.io',

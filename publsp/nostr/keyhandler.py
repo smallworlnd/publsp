@@ -28,38 +28,47 @@ class KeyHandler:
             client: str,
             reuse_keys: bool = NostrSettings().reuse_keys,
             write_keys: bool = NostrSettings().write_keys,
+            ask_encrypt: bool = NostrSettings().ask_encrypt,
             filename: str = NOSTR_KEYS_FILE):
         self.filename = filename
         if reuse_keys:
             self.keys = self.read_keys(client=client)
             if not self.keys:
-                self.keys = self.generate_keys(client=client, write_keys=write_keys)
+                self.keys = self.generate_keys(
+                    client=client,
+                    write_keys=write_keys,
+                    ask_encrypt=ask_encrypt)
         else:
-            self.keys = self.generate_keys(client=client, write_keys=write_keys)
+            self.keys = self.generate_keys(
+                client=client,
+                write_keys=write_keys,
+                ask_encrypt=ask_encrypt)
 
-    def generate_keys(self, client: str, write_keys: bool):
+    def generate_keys(self, client: str, write_keys: bool, ask_encrypt: bool):
         """
-        Generate a new set of keys for either server or client.
-        Asks for user input to encrypt the keys or not, and to choose a password if the former.
+        Generate a new set of keys for either server or client.  Asks for user
+        input to encrypt the keys or not, and to choose a password if the
+        former.
         """
         keys = Keys.generate()
         pubkey = keys.public_key().to_bech32()
         privkey = keys.secret_key().to_bech32()
 
-        # Ask the user if they want to set a password
-        set_password = click.confirm(
-            'Do you want to encrypt your new nsec?',
-            default=True
-        )
-        if set_password:
-            password = click.prompt(
-                "Enter your password", hide_input=True
+        if ask_encrypt:
+            # Ask the user if they want to set a password
+            set_password = click.confirm(
+                'Do you want to encrypt your new nsec?',
+                default=True
             )
-            logger.info("Encrypting keys and saving to file...")
-            privkey = keys.secret_key().encrypt(password=password).to_bech32()
-            logger.info("Remember to keep your password in a safe place!")
-        else:
-            logger.info("nsec will be saved in plaintext; highly discouraged!")
+            if set_password:
+                password = click.prompt(
+                    "Enter your password", hide_input=True
+                )
+                logger.info("Encrypting keys and saving to file...")
+                privkey = keys.secret_key().encrypt(password=password).to_bech32()
+                logger.info("Remember to keep your password in a safe place!")
+            else:
+                logger.info("nsec will be saved in plaintext; highly discouraged!")
 
         if write_keys:
             self.write_keys(privkey, pubkey, client)
