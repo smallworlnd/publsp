@@ -20,12 +20,14 @@ class NostrClient(Client):
             self,
             client_for='lsp',
             write_keys: bool = NostrSettings().write_keys,
-            reuse_keys: bool = NostrSettings().reuse_keys):
+            reuse_keys: bool = NostrSettings().reuse_keys,
+            ask_encrypt: bool = NostrSettings().ask_encrypt):
         self.client_for = client_for
         self.key_handler = KeyHandler(
             client=client_for,
             reuse_keys=reuse_keys,
-            write_keys=write_keys)
+            write_keys=write_keys,
+            ask_encrypt=ask_encrypt)
         self.signer = NostrSigner.keys(self.key_handler.keys)
         super().__init__(self.signer)
 
