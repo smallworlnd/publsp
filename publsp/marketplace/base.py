@@ -130,7 +130,7 @@ class MarketplaceAgent(ABC):
                 continue
 
             # step 2: drop inactive
-            if tags.get("status", "").lower() == "inactive":
+            if not tags.get("lsp_pubkey") or tags.get("status", "").lower() == "inactive":
                 continue
 
             evs_and_tags.append((ev, tags))
@@ -141,7 +141,7 @@ class MarketplaceAgent(ABC):
             pair = (tags["lsp_pubkey"], tags["d"])
             prev = latest_by_pair.get(pair)
             # if no existing, or this one is newer, replace it
-            if prev is None or ev.created_at > prev.created_at:
+            if prev is None or ev.created_at().as_secs() > prev.created_at().as_secs():
                 latest_by_pair[pair] = ev
 
         # return just the Events

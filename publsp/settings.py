@@ -17,7 +17,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.1.7'
+VERSION = '0.1.8'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -26,6 +26,11 @@ PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
 class Environment(str, Enum):
     PROD = 'production'
     DEV = 'development'
+
+
+class Interface(str, Enum):
+    CLI = "cli"
+    API = "api"
 
 
 class LnImplementation(str, Enum):
@@ -66,6 +71,7 @@ class PublspSettings(BaseSettings):
         extra='ignore'
     )
     log_level: LogLevel = LogLevel.INFO
+    interface: Interface = Interface.CLI
 
     @classmethod
     def settings_customise_sources(
@@ -311,7 +317,6 @@ class NostrSettings(PublspSettings):
     nostr_relays: List[str] = Field(
         default=[
             'wss://relay.damus.io',
-            'wss://nos.lol',
             'wss://nostr.mom',
             'wss://nostr.bitcoiner.social',
         ]

@@ -8,6 +8,7 @@ from typing import Union
 from publsp.blip51.info import Ad
 from publsp.blip51.order import (
     Order,
+    OrderErrorCode,
     OrderErrorResponse,
     OrderResponse,
     ValidatedOrderResponse,
@@ -18,6 +19,7 @@ from publsp.marketplace.base import AdEventData, MarketplaceAgent
 from publsp.nostr.client import NostrClient
 from publsp.nostr.kinds import PublspKind
 from publsp.nostr.nip17 import RumorHandler
+from publsp.settings import Interface, PublspSettings
 
 import logging
 
@@ -106,11 +108,13 @@ class OrderResponseHandler:
             self,
             customer_handler: CustomerHandler,
             rumor_handler: RumorHandler,
+            output_interface: Interface = PublspSettings().interface,
             **kwargs):
         self.customer_handler = customer_handler
         self.rumor_handler = rumor_handler
         self.selected_ad: Ad = None  # populated after order request sent
-        self.cli_opts = kwargs
+        self.opts = kwargs
+        self.output_interface = output_interface
 
     async def _listener(self, iterator, handler):
         """
@@ -119,7 +123,7 @@ class OrderResponseHandler:
         """
         try:
             async for rumor, payload in iterator:
-                handler(rumor, payload)
+                handler(payload)
         except asyncio.CancelledError:
             pass
 
@@ -139,14 +143,14 @@ class OrderResponseHandler:
         decoded_payreq = lndecode(order_resp.payment.bolt11.invoice)
         receiver_pubkey = hexlify(decoded_payreq.pubkey.serialize()).decode('utf-8')
         invoice_order_total_sat = int(float(decoded_payreq.amount)*1e8)
-        requested_capacity = self.cli_opts.get('lsp_balance_sat') \
-            + self.cli_opts.get('client_balance_sat')
+        requested_capacity = self.opts.get('lsp_balance_sat') \
+            + self.opts.get('client_balance_sat')
         expected_fee_total = int(
             self.selected_ad.fixed_cost_sats +
             self.selected_ad.variable_cost_ppm*1e-6*requested_capacity
         )
         expected_total_cost = expected_fee_total \
-            + self.cli_opts.get('client_balance_sat')
+            + self.opts.get('client_balance_sat')
         # 2.
         if self.selected_ad.lsp_pubkey != receiver_pubkey:
             err = f'invoice does not originate from LSP, got {receiver_pubkey}'
@@ -188,44 +192,113 @@ class OrderResponseHandler:
 
         return ValidatedOrderResponse(is_valid=True)
 
-    def handle_order_response(
+    def _process_order_response(
             self,
-            rumor: UnsignedEvent,
-            order_resp: Union[OrderResponse, OrderErrorResponse]):
-        logger.debug(f'handling order response')
+            order_resp: Union[OrderResponse, OrderErrorResponse]
+        ) -> Union[OrderResponse, OrderErrorResponse]:
+        """
+        Process the order response and return structured result.
+
+        This core method handles the logic of response processing without
+        managing the output format.
+
+        Args:
+            order_resp: The order response from the LSP
+
+        Returns:
+            tuple: (response_type, response_obj, validation_info)
+                - response_type: "error", "success", or "validation_error"
+                - response_obj: OrderResponse or OrderErrorResponse object
+                - validation_info: ValidatedOrderResponse if applicable or None
+        """
+        logger.debug('processing order response')
+
+        # Handle error response
         if isinstance(order_resp, OrderErrorResponse):
-            click.echo(
-                '\n\nThe LSP had a problem processing the order request: '
-                f'error code: {order_resp.code}\n'
-                f'error message: {order_resp.error_message}\n\n'
-            )
-            return
+            return order_resp
+
+        # Handle success case with validation
         resp_validated = self.is_order_resp_valid(order_resp)
         if resp_validated.is_valid:
-            click.echo(
-                '\n\nOrder response validated, matches expectation for '
-                'total fee, total cost and LSP node destination\n'
-                f'Order ID: {order_resp.order_id}\n'
-                f'Invoice amount: {order_resp.payment.bolt11.order_total_sat}\n'
-                f'Please pay the following BOLT11 invoice:\n{order_resp.payment.bolt11.invoice}\n\n'
-            )
-        else:
-            click.echo(
-                'Something went wrong when validating the order response '
-                f'from the LSP: {resp_validated.error_message}'
-            )
+            logger.debug(f'order response validated')
+            return order_resp
+        logger.debug(f'order response has an error')
+        return OrderErrorResponse(
+            code=OrderErrorCode.option_mismatch,
+            error_message=resp_validated.error_message
+        )
 
-    def handle_chan_open_response(
+    def _format_order_response(
+            self,
+            response_obj: Union[OrderResponse, OrderErrorResponse]) -> str:
+        if response_obj.error_message:
+            return (
+                '\n\nThe LSP had a problem processing the order request: '
+                f'error code: {response_obj.code}\n'
+                f'error message: {response_obj.error_message}\n\n'
+            )
+        return (
+            '\n\nOrder response validated, matches expectation for '
+            'total fee, total cost and LSP node destination\n'
+            f'Order ID: {response_obj.order_id}\n'
+            f'Invoice amount: {response_obj.payment.bolt11.order_total_sat}\n'
+            f'Please pay the following BOLT11 invoice:\n{response_obj.payment.bolt11.invoice}\n\n'
+        )
+
+    def handle_order_response(
+            self,
+            order_resp: Union[OrderResponse, OrderErrorResponse]):
+        """
+        Handle an order response (CLI mode) or return response data (API mode).
+
+        Args:
+            order_resp: The order response object
+
+        Returns:
+            None in CLI mode, response tuple in API mode
+        """
+        # Process the response
+        result = self._process_order_response(order_resp)
+
+        # Handle output based on mode
+        if self.output_interface == Interface.CLI:
+            print('setting up output for cli')
+            message = self._format_order_response(result)
+            click.echo(message)
+            return
+
+        return result
+
+    def _process_chan_open_response(
             self,
             rumor: UnsignedEvent,
-            chan_open_resp: ChannelOpenResponse):
-        logger.debug(f'handling channel open response')
-        click.echo(
+            chan_open_resp: ChannelOpenResponse) -> ChannelOpenResponse:
+        logger.debug('processing channel open response')
+        return chan_open_resp
+
+    def _format_chan_open_response(
+            self,
+            chan_open_resp: ChannelOpenResponse) -> str:
+        return (
             '\n\nReceived channel open notification:\n'
             f'Channel status: {chan_open_resp.channel_state.value}\n'
             f'Transaction ID: {chan_open_resp.txid_hex}\n'
             f'Output index: {chan_open_resp.output_index}\n\n'
         )
+
+    def handle_chan_open_response(
+            self,
+            chan_open_resp: ChannelOpenResponse):
+
+        response = self._process_chan_open_response(chan_open_resp)
+
+        # Handle output based on mode
+        if self.output_interface == Interface.CLI:
+            message = self._format_chan_open_response(response)
+            click.echo(message)
+            return
+
+        return response
 
     def start(self):
         """
@@ -237,13 +310,13 @@ class OrderResponseHandler:
             task = getattr(self, task_attr, None)
             if task is None or task.done():
                 iterator = getattr(self.rumor_handler, attr_iter)()
-                handler  = getattr(self, handler_name)
+                handler = getattr(self, handler_name)
                 new_task = asyncio.create_task(self._listener(iterator, handler))
                 setattr(self, task_attr, new_task)
 
     async def stop(self):
         """
-        Cancel and await each of our listener‐tasks.
+        Cancel and await each of our listener-tasks.
         """
         for _, _, task_attr in self._LISTENER_CONFIG:
             task = getattr(self, task_attr, None)
