@@ -46,3 +46,9 @@ class NostrClient(Client):
     async def disconnect_relays(self, env: Environment = EnvironmentSettings().environment) -> None:
         for relay in Relays().get_relays(env=env):
             await self.disconnect_relay(relay)
+
+    def get_npub(self) -> str:
+        return self.key_handler.keys.public_key().to_bech32()
+
+    def get_public_key_hex(self) -> str:
+        return self.key_handler.keys.public_key().to_hex()

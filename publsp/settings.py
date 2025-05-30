@@ -17,7 +17,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.1.8'
+VERSION = '0.2.0'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -326,6 +326,12 @@ class NostrSettings(PublspSettings):
             'ws://localhost:10547',
         ]
     )
+
+
+class ApiSettings(PublspSettings):
+    interval_minutes: int = 10
+    max_idle_minutes: int = 90
+    max_listen_minutes: int = 60
 
 
 class LspSettings(

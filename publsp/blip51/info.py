@@ -4,7 +4,7 @@ https://github.com/lightning/blips/blob/master/blip-0051.md#1-lsps1get_info
 but adapted for nostr
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 from publsp.settings import AdSettings
 from publsp.blip51.mixins import NostrTagsMixin
@@ -28,3 +28,21 @@ class Ad(BaseModel, NostrTagsMixin):
     variable_cost_ppm: int = AdSettings().variable_cost_ppm
     max_promised_fee_rate: int = AdSettings().max_promised_fee_rate
     max_promised_base_fee: int = AdSettings().max_promised_base_fee
+
+
+class AdList(BaseModel):
+    ads: List[Ad]
+
+
+class CostEstimate(BaseModel):
+    d: str
+    lsp_pubkey: str
+    total_cost_sats: int
+    sats_per_block: float
+    annualized_rate_percent: float
+    min_channel_balance_sat: int
+    max_channel_balance_sat: int
+
+
+class CostEstimateList(BaseModel):
+    estimates: List[CostEstimate]

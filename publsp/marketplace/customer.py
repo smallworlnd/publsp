@@ -3,7 +3,7 @@ import click
 import contextlib
 from binascii import hexlify
 from nostr_sdk import UnsignedEvent
-from typing import Union
+from typing import Union, Optional, Any
 
 from publsp.blip51.info import Ad
 from publsp.blip51.order import (
@@ -109,6 +109,7 @@ class OrderResponseHandler:
             customer_handler: CustomerHandler,
             rumor_handler: RumorHandler,
             output_interface: Interface = PublspSettings().interface,
+            response_queue_manager = None,  # New parameter for response queue
             **kwargs):
         self.customer_handler = customer_handler
         self.rumor_handler = rumor_handler
@@ -116,16 +117,35 @@ class OrderResponseHandler:
         self.opts = kwargs
         self.output_interface = output_interface
 
+        # Initialize or use provided queue manager
+        if response_queue_manager is None:
+            from publsp.marketplace.response_manager import ResponseQueueManager
+            self.response_queue_manager = ResponseQueueManager()
+        else:
+            self.response_queue_manager = response_queue_manager
+
+        # Register response types
+        self.response_queue_manager.register_response_type("order")
+        self.response_queue_manager.register_response_type("channel_open")
+
     async def _listener(self, iterator, handler):
         """
         Pull off items from an async‐iterator and dispatch to handler.
         Swallows CancelledError so we can cleanly cancel tasks.
         """
+        logger.info(f"OrderResponseHandler._listener started for handler: {handler.__name__}")
         try:
             async for rumor, payload in iterator:
-                handler(payload)
+                logger.info(f"OrderResponseHandler._listener received message - rumor: {rumor}, payload type: {type(payload)}")
+                logger.info(f"OrderResponseHandler._listener payload content: {payload}")
+                # Only pass the payload to the handler (rumor is not needed anymore)
+                result = handler(payload)
+                logger.info(f"OrderResponseHandler._listener handler returned: {result}")
         except asyncio.CancelledError:
+            logger.info(f"OrderResponseHandler._listener cancelled for handler: {handler.__name__}")
             pass
+        except Exception as e:
+            logger.error(f"OrderResponseHandler._listener error: {e}", exc_info=True)
 
     def is_order_resp_valid(
             self,
@@ -257,12 +277,21 @@ class OrderResponseHandler:
         Returns:
             None in CLI mode, response tuple in API mode
         """
+        logger.info(f"OrderResponseHandler.handle_order_response called with: {type(order_resp)}")
+        logger.info(f"Response content: {order_resp}")
+
         # Process the response
         result = self._process_order_response(order_resp)
+        logger.info(f"Processed response: {type(result)}")
+
+        # Store the response in the queue manager
+        response_type = "order"
+        logger.info(f"Storing response of type '{response_type}' in queue manager")
+        self.response_queue_manager.store_response(response_type, result)
+        logger.info(f"Response stored successfully")
 
         # Handle output based on mode
         if self.output_interface == Interface.CLI:
-            print('setting up output for cli')
             message = self._format_order_response(result)
             click.echo(message)
             return
@@ -271,8 +300,16 @@ class OrderResponseHandler:
 
     def _process_chan_open_response(
             self,
-            rumor: UnsignedEvent,
             chan_open_resp: ChannelOpenResponse) -> ChannelOpenResponse:
+        """
+        Process a channel open response.
+
+        Args:
+            chan_open_resp: The channel open response
+
+        Returns:
+            The processed channel open response
+        """
         logger.debug('processing channel open response')
         return chan_open_resp
 
@@ -289,10 +326,22 @@ class OrderResponseHandler:
     def handle_chan_open_response(
             self,
             chan_open_resp: ChannelOpenResponse):
+        """
+        Handle a channel open response (CLI mode) or return response (API mode).
 
-        response = self._process_chan_open_response(chan_open_resp)
+        Args:
+            chan_open_resp: The channel open response
 
-        # Handle output based on mode
+        Returns:
+            None in CLI mode, ChannelOpenResponse in API mode
+        """
+        # No additional processing needed for channel open responses
+        response = chan_open_resp
+
+        # Store the response in the queue manager
+        self.response_queue_manager.store_response("channel_open", response)
+
+        # Handle output based on interface
         if self.output_interface == Interface.CLI:
             message = self._format_chan_open_response(response)
             click.echo(message)
@@ -305,14 +354,21 @@ class OrderResponseHandler:
         Walk our config table, and for each entry spin up
         a `self._listener(rumor_handler.foo(), self.handle_xyz)`.
         """
+        logger.info("OrderResponseHandler.start() called")
         for attr_iter, handler_name, task_attr in self._LISTENER_CONFIG:
+            logger.info(f"Setting up listener for {attr_iter} -> {handler_name} -> {task_attr}")
             # if the task is missing or done, create it
             task = getattr(self, task_attr, None)
             if task is None or task.done():
                 iterator = getattr(self.rumor_handler, attr_iter)()
                 handler = getattr(self, handler_name)
+                logger.info(f"Creating task for {handler_name} with iterator {attr_iter}")
                 new_task = asyncio.create_task(self._listener(iterator, handler))
                 setattr(self, task_attr, new_task)
+                logger.info(f"Task {task_attr} created successfully")
+            else:
+                logger.info(f"Task {task_attr} already exists and is running")
+        logger.info("OrderResponseHandler.start() completed")
 
     async def stop(self):
         """
