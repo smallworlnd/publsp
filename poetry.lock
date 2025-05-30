@@ -674,37 +674,25 @@ traitlets = "*"
 
 [[package]]
 name = "nostr-sdk"
-version = "0.41.0"
+version = "0.42.1"
 description = "Nostr protocol implementation, Relay, RelayPool, high-level client library, NWC client and more."
 optional = false
-python-versions = "*"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "nostr_sdk-0.41.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:833b9d5cfa3f848ab787e1c46c43fbaaae97a54dc21818a806fdeaad623256ca"},
-    {file = "nostr_sdk-0.41.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:f9c18b9326c174085f3f7046cd2763fe4daf51ff11c93e7d856fb7570466fc93"},
-    {file = "nostr_sdk-0.41.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:07490753bfec8174d1a3b2a49e6acecbd3ee889ad3b1628aa5008b2647a41e59"},
-    {file = "nostr_sdk-0.41.0-cp310-cp310-manylinux_2_31_aarch64.whl", hash = "sha256:4e09a431b886f9454466038a171fa6dc891ed4bd16f5d5f76f564459107485ce"},
-    {file = "nostr_sdk-0.41.0-cp310-cp310-win_amd64.whl", hash = "sha256:94bd38958d62cbab206683bfc9f8a3267d711a4d455f40be9c6e01ebcbba4a23"},
-    {file = "nostr_sdk-0.41.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1e1ea0e7d4275e3652008472467152750d3ed276f2f6b2ce6424b241a858c4db"},
-    {file = "nostr_sdk-0.41.0-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:854fa95191e10f56a09fe20cabbe8994d3905ecb58223406473f2ca0f2747266"},
-    {file = "nostr_sdk-0.41.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:8c67d635256d6e93c01cc14a738f2b68f6c65c4ceef3a9e63af4e48ccc40c629"},
-    {file = "nostr_sdk-0.41.0-cp311-cp311-manylinux_2_31_aarch64.whl", hash = "sha256:07ff7a6af32f54f00ca42a4707cfa34cfa2734a0b477e1d7c4d110bbbfb9ccba"},
-    {file = "nostr_sdk-0.41.0-cp311-cp311-win_amd64.whl", hash = "sha256:40f60230b29428af9b8a5874ecb7a69402c53ad40f61467a8d316dc1a2ca4fde"},
-    {file = "nostr_sdk-0.41.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1192043c86e9ed15cc0278b9f729c32a2164df4e26972197de247f643ed1b2a9"},
-    {file = "nostr_sdk-0.41.0-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:cde6f6126bd1041071907f20bbc70bb5fd469cd434d183e78e23965e21fabf63"},
-    {file = "nostr_sdk-0.41.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:eb1058d99974af2e651dcc4ab5290194b783abe847f0d4092ec1a805e9c40896"},
-    {file = "nostr_sdk-0.41.0-cp312-cp312-manylinux_2_31_aarch64.whl", hash = "sha256:38b5cf10514993daf90eaed79dfa8486c2db0796553b749bf03a236a7d1bd7c6"},
-    {file = "nostr_sdk-0.41.0-cp312-cp312-win_amd64.whl", hash = "sha256:b78e70dbb5372aefea85726f73a1a5c2e51a7dacdd5468e218ad6a0e1d126927"},
-    {file = "nostr_sdk-0.41.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:f6134db6d5994fc25978deaab8cc0f7cf756e04dbf6dbd788df231ef20b3d7df"},
-    {file = "nostr_sdk-0.41.0-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:6a61ae6108db279ef2deb05b6f0086711ee020c0c79b85fc2d08671e4b0af5e6"},
-    {file = "nostr_sdk-0.41.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:122714d8c31e31cb993f65009ba98102dc77615f04dd3814486e1082908b8370"},
-    {file = "nostr_sdk-0.41.0-cp313-cp313-manylinux_2_31_aarch64.whl", hash = "sha256:b296b1e282705537928d8d3b45d56cd80e874884603d42dd39c9981c6955c4d2"},
-    {file = "nostr_sdk-0.41.0-cp313-cp313-win_amd64.whl", hash = "sha256:20bbcac9681add3d74a9e8979af5859c44df8ac88546595b90323b37cf63b3cf"},
-    {file = "nostr_sdk-0.41.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:eca7941ad8ea376e8f7ff0675e3da824ee5b9f0af8720278c2c78ddca17b0a67"},
-    {file = "nostr_sdk-0.41.0-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:b86eb43278ebb815b95e7844ae2871bde1690b30ae8466c5a9e1c945c7978984"},
-    {file = "nostr_sdk-0.41.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:8d4c03498f60c629833c07724cc68bba768a8aa2e301529cfbbb355d8aad6627"},
-    {file = "nostr_sdk-0.41.0-cp39-cp39-manylinux_2_31_aarch64.whl", hash = "sha256:ed98a17b899874378ed9c07dff3bcadcd9c5674468170fb951b4ce32fc317c19"},
-    {file = "nostr_sdk-0.41.0-cp39-cp39-win_amd64.whl", hash = "sha256:07b952e1c116ff7113a53682df93fbbc2d3edffcc6dea1cb9b741b859940bcfa"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:57ac8b7a6f56bb619a3ef58fbfe1bd93e180d5cd73681b45eeaf5ae2dd45d345"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-macosx_11_0_x86_64.whl", hash = "sha256:8897a4c3c34aa3cf4d500e570a1697ba253f89223e8548d2b75da2006fc730eb"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-manylinux_2_17_aarch64.whl", hash = "sha256:166f1c7b1901813ad9a6296641384cbcc7e35c18ccdf3229d88fcd1e0b51d6ee"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-manylinux_2_17_armv7l.whl", hash = "sha256:f2b86bc50805be59113c974665bdf4dcaaf76a1f591a9dba41f1d50acb674b3c"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-manylinux_2_17_i686.whl", hash = "sha256:73b0c16494221a0faf8ec369a2609faba3f17ffd0f03620baa0ec83c58c49b71"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-manylinux_2_17_x86_64.whl", hash = "sha256:f68663073630c8edee55d9bec689f019ea616ef6482857e7f72ba1dc1b4fa9cc"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:b6659308d7629e23be252455c46d81549fe6bf945915ec4a0cba2c4b61815c07"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:1fa8a8688cf17e838c31caf5c8a357b7c7c2ba3b6ee85e39c05c93e80d999b99"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-musllinux_1_2_i686.whl", hash = "sha256:0a89ae1c7b2c36025024511240aa10540aade2551e8b97d40b4a0b88feaabe8c"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:e3dda5d65591158a0c9794aa79a2f2ea7bbe3cfcba236645fbff8291d94946f1"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-win32.whl", hash = "sha256:d20988c0d6dd16c183607dfdbd243e4f5cc9d8a4faa0c498df546fa8383da902"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-win_amd64.whl", hash = "sha256:35978a8e526e66d05a346546391c28d643dfca31117a95c51c940c994c422d7d"},
+    {file = "nostr_sdk-0.42.1-cp39-abi3-win_arm64.whl", hash = "sha256:802c74f903b120b74bf501bf68c81d5ee1dc9f7f57801a53a507044a14b9a840"},
 ]
 
 [[package]]
@@ -1323,4 +1311,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "d18f7fd8c3b4eb01bffdc844ece939a391d6c585f78aa7af8f6ac094e1858d0a"
+content-hash = "cbac4d815da010cbc052a2feda4b63d438747a0f40681c75375719de17a8bcc1"
