@@ -19,12 +19,9 @@ router = APIRouter(prefix="/session", tags=["Session"])
 async def get_session(session: UserSession = Depends(get_user_session)):
     """Get information about the current session"""
 
-    # Always create a new session with a new nostr key
-    if session.initialized:
-        await session.cleanup()
-
-    # Initialize with fresh keys
-    await session.initialize(reuse_keys=False)
+    # Ensure session is initialized
+    if not session.initialized:
+        await session.initialize(reuse_keys=False)
 
     return SessionInfo(
         session_id=session.session_id,
