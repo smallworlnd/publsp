@@ -182,7 +182,7 @@ class OrderResponseHandler:
                 'order response order total of '
                 f'{order_resp.payment.bolt11.order_total_sat} '
                 'not consistent with the decoded bolt11 invoice amount of '
-                '{invoice_order_total_sat}, something went wrong with the LSP')
+                f'{invoice_order_total_sat}, something went wrong with the LSP')
             logger.error(err)
             return ValidatedOrderResponse(is_valid=False, error_message=err)
         # 4.
