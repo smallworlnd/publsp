@@ -164,8 +164,8 @@ class LndBackend(NodeBase):
             return GetNodePropertyResponse(
                 total_capacity=total_capacity,
                 num_channels=num_channels,
-                median_outbound_ppm=fee_rates.get('median_outbound_fee_rate'),
-                median_inbound_ppm=fee_rates.get('median_inbound_fee_rate')
+                median_outbound_ppm=int(fee_rates.get('median_outbound_fee_rate')),
+                median_inbound_ppm=int(fee_rates.get('median_inbound_fee_rate'))
             )
 
         return GetNodePropertyResponse(
