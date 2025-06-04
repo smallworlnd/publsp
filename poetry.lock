@@ -441,6 +441,21 @@ files = [
 python-dotenv = "*"
 
 [[package]]
+name = "dumb-init"
+version = "1.2.5.post1"
+description = "Simple wrapper script which proxies signals to a child"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "dumb-init-1.2.5.post1.tar.gz", hash = "sha256:6510538a975e0de10658b0210ec2ad62dc3617543af5c6fbd29a3af111eae981"},
+    {file = "dumb_init-1.2.5.post1-py2.py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5d6b1fe9b8efcdbbdcb670efe7a55f9117251ee9648d35ffd0c487fd79515ea5"},
+    {file = "dumb_init-1.2.5.post1-py2.py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a516a16a7dfed012de2524eb449e31f7f583b11b938eebb3ec09fd194497293d"},
+    {file = "dumb_init-1.2.5.post1-py2.py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:c52a20fe73a6f56501079f969775098ab83bd9c73648b9e4eb68fa1b02a9b98e"},
+    {file = "dumb_init-1.2.5.post1-py2.py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:fc1e309f52c898ee00df056189f46ca3f6055a72b77015f4eefbd7c58c45290f"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.3.0"
 description = "Backport of PEP 654 (exception groups)"
@@ -1311,4 +1326,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "cbac4d815da010cbc052a2feda4b63d438747a0f40681c75375719de17a8bcc1"
+content-hash = "227a7b1b70217f575abb2e941a7cf2705c403bfe3b4bf1bd073f1899165faad1"

@@ -105,6 +105,50 @@ This will drop you into an interactive REPL to:
 
 Leave this running after you've published an ad in order to listen for, and automatically process, order requests.
 
+#### Running the LSP-side as a daemon
+
+```bash
+# minimally
+publsp lsp \
+  --node lnd \
+  --rest-host http://127.0.0.1:8081 \
+  --permissions-file-path /path/to/admin.macaroon \
+  --cert-file-path /path/to/tls.cert \
+  --daemon
+```
+
+This automates the publishing/inactivating when starting/stopping but currently stays in the foreground so you'll need to do some more management yourself. The docker container provides a bit more flexibility, for example (adjust options to fit your system):
+
+```bash
+# assuming your .lnd is somewhere on the host, send docker container to background
+docker run -d --rm --network "host" --name publsp \
+  -v /path/to/.lnd:/root/.lnd \
+  -v "$(pwd):/app/output" \
+  publsp lsp \
+    --node lnd \
+    --rest-host https://127.0.0.1:8080 \
+    --permissions-file-path /root/.lnd/path/to/admin.macaroon \
+    --cert-file-path /root/.lnd/path/to/tls.cert \
+    --daemon
+
+# stop the container
+docker stop publsp
+
+# start new container with modified option
+docker run -d --rm --network "host" --name publsp \
+  -v /path/to/.lnd:/root/.lnd \
+  -v "$(pwd):/app/output" \
+  publsp lsp \
+    --node lnd \
+    --rest-host https://127.0.0.1:8080 \
+    --permissions-file-path /root/.lnd/path/to/admin.macaroon \
+    --cert-file-path /root/.lnd/path/to/tls.cert \
+    --daemon
+    --fixed-cost 1000
+```
+
+Make sure to include the options with your desired settings either on the command line, or set them in a `.env` file, see the `.env.example` for ideas. Have a look at the output from the daemon to verify your ad settings.
+
 ### Customer Mode
 
 ```bash

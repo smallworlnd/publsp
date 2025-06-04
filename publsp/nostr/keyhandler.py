@@ -28,7 +28,7 @@ class KeyHandler:
             client: str,
             reuse_keys: bool = NostrSettings().reuse_keys,
             write_keys: bool = NostrSettings().write_keys,
-            ask_encrypt: bool = NostrSettings().ask_encrypt,
+            encrypt_keys: bool = NostrSettings().encrypt_keys,
             filename: str = NOSTR_KEYS_FILE):
         self.filename = filename
         if reuse_keys:
@@ -37,14 +37,14 @@ class KeyHandler:
                 self.keys = self.generate_keys(
                     client=client,
                     write_keys=write_keys,
-                    ask_encrypt=ask_encrypt)
+                    encrypt_keys=encrypt_keys)
         else:
             self.keys = self.generate_keys(
                 client=client,
                 write_keys=write_keys,
-                ask_encrypt=ask_encrypt)
+                encrypt_keys=encrypt_keys)
 
-    def generate_keys(self, client: str, write_keys: bool, ask_encrypt: bool):
+    def generate_keys(self, client: str, write_keys: bool, encrypt_keys: bool):
         """
         Generate a new set of keys for either server or client.  Asks for user
         input to encrypt the keys or not, and to choose a password if the
@@ -54,7 +54,7 @@ class KeyHandler:
         pubkey = keys.public_key().to_bech32()
         privkey = keys.secret_key().to_bech32()
 
-        if ask_encrypt:
+        if encrypt_keys:
             # Ask the user if they want to set a password
             set_password = click.confirm(
                 'Do you want to encrypt your new nsec?',

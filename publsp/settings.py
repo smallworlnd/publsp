@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.2.4'
+VERSION = '0.3.0'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -313,8 +313,8 @@ class NostrSettings(PublspSettings):
     nostr_keys_path: Optional[str] = Field(default='output/nostr-keys.json')
     nostr_keys_path_dev: Optional[str] = Field(default='output/nostr-keys.json.dev')
     reuse_keys: Optional[bool] = Field(default=False)
-    write_keys: Optional[bool] = Field(default=True)
-    ask_encrypt: Optional[bool] = Field(default=True)
+    write_keys: Optional[bool] = Field(default=False)
+    encrypt_keys: Optional[bool] = Field(default=False)
     nostr_relays: List[str] = Field(
         default=[
             'wss://relay.damus.io',
@@ -356,6 +356,7 @@ class LspSettings(
         PublspSettings,
         ):
     version: str = Field(default=VERSION)
+    daemon: bool = Field(default=False)
 
 
 class CustomerSettings(

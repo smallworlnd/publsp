@@ -1,6 +1,7 @@
 import asyncio
-from functools import partial
 import click
+import signal
+from functools import partial
 from typing import Callable, Awaitable
 
 from publsp.cli.basecli import BaseCLI
@@ -23,13 +24,18 @@ async def async_prompt(text: str) -> str:
 class LspCLI(BaseCLI):
     def __init__(self, **kwargs):
         # state
-        self._running = True
+        self._shutdown_event = None  # Will be created when event loop is running
+        self.daemon_mode = kwargs.get('daemon')
+        msg = kwargs.get('value_prop')
+        self.marketing_content = msg if msg else CustomAdSettings().value_prop
 
-        # core services
         rest_host = kwargs.get('rest_host')
         permissions_file_path = kwargs.get('permissions_file_path')
         cert_file_path = kwargs.get('cert_file_path')
         ln_backend = kwargs.get('node')
+        reuse_keys = kwargs.get("reuse_keys")
+
+        # core services
         if ln_backend == LnImplementation.LND:
             self.ln_backend = LndBackend(
                 rest_host=rest_host,
@@ -39,7 +45,6 @@ class LspCLI(BaseCLI):
         else:
             raise NotImplementedError
 
-        reuse_keys = kwargs.get("reuse_keys")
         self.nostr_client = NostrClient(client_for="lsp", reuse_keys=reuse_keys)
         self.rumor_handler = RumorHandler()
         self.nip17_listener = Nip17Listener(
@@ -59,17 +64,39 @@ class LspCLI(BaseCLI):
         )
 
         # menu command registry: key -> (description, coroutine handler)
-        msg = kwargs.get('value_prop')
-        marketing_content = msg if msg else CustomAdSettings().value_prop
         self.commands: dict[str, tuple[str, Callable[[], Awaitable[None]]]] = {
             "1": (
                 "Publish ad",
-                partial(self.cmd_publish_ad, marketing_content),
+                partial(self.cmd_publish_ad, self.marketing_content),
             ),
             "2": ("View active ad", self.cmd_view_ad),
             "3": ("Inactivate ads", self.cmd_update_ad),
             "4": ("Exit", self.cmd_exit),
         }
+
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown (especially for Docker)."""
+        import signal
+        import os
+
+        # Log PID for debugging
+        logger.info(f"Setting up signal handlers for PID {os.getpid()}")
+
+        def signal_handler(signum, frame):
+            signal_name = signal.Signals(signum).name
+            logger.info(f"Received {signal_name} signal, triggering shutdown...")
+            # Signal the event to wake up any waiting tasks
+            if self._shutdown_event:
+                # Use call_soon_threadsafe since signal handler runs in different thread
+                loop = asyncio.get_event_loop()
+                loop.call_soon_threadsafe(self._shutdown_event.set)
+                logger.info("Shutdown event set via call_soon_threadsafe")
+            else:
+                logger.warning("Shutdown event not available!")
+
+        # Handle SIGTERM from Docker
+        signal.signal(signal.SIGTERM, signal_handler)
+        logger.info("SIGTERM handler registered")
 
     async def startup(self) -> None:
         """Connect relays and start background listeners."""
@@ -108,7 +135,8 @@ class LspCLI(BaseCLI):
 
     async def cmd_exit(self) -> None:
         click.echo("Exiting...")
-        self._running = False
+        if self._shutdown_event:
+            self._shutdown_event.set()
 
     # ------------------------------------------
     # Helpers
@@ -127,25 +155,44 @@ class LspCLI(BaseCLI):
     async def run(self) -> None:
         await self.startup()
 
+        # Create shutdown event after event loop is running
+        self._shutdown_event = asyncio.Event()
+
         try:
-            while self._running:
-                self._render_menu()
-                choice = await async_prompt("Choice (1-4)")
+            if self.daemon_mode:
+                self._setup_signal_handlers()
+                await self.cmd_publish_ad(self.marketing_content)
+                logger.info("Ad published")
+                logger.info("Running in daemon mode")
+                logger.info("Press Ctrl+C or send SIGTERM to cleanly stop")
 
-                handler_entry = self.commands.get(choice)
-                if handler_entry:
-                    _, handler = handler_entry
-                    try:
-                        await handler()
-                    except Exception as exc:
-                        logger.error(f"Command {choice} failed: {exc}")
-                else:
-                    click.echo("Invalid choice, please enter 1-4")
+                # Wait for shutdown event or KeyboardInterrupt
+                await self._shutdown_event.wait()
+                logger.info("Shutdown event received")
 
-        except KeyboardInterrupt:
-            logger.info("Interrupted, shutting down...")
+            else:
+                while not self._shutdown_event.is_set():
+                    self._render_menu()
+                    choice = await async_prompt("Choice (1-4)")
+
+                    handler_entry = self.commands.get(choice)
+                    if handler_entry:
+                        _, handler = handler_entry
+                        try:
+                            await handler()
+                        except Exception as exc:
+                            logger.error(f"Command {choice} failed: {exc}")
+                    else:
+                        click.echo("Invalid choice, please enter 1-4")
+
+        except KeyboardInterrupt as e:
+            logger.info(f"KeyboardInterrupt received: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
         finally:
+            logger.info("Running shutdown cleanup...")
             await self.shutdown()
+            logger.info("Shutdown complete")
             raise SystemExit(0)
 
 

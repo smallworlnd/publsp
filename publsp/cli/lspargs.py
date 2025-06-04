@@ -77,7 +77,6 @@ from pydantic import ValidationError
     "supports_zero_channel_reserve",
     is_flag=True,
     default=AdSettings().supports_zero_channel_reserve,
-    show_default=True,
     help="allow zero reserve channels"
 )
 @click.option(
@@ -171,14 +170,12 @@ from pydantic import ValidationError
     help="max promised base fee"
 )
 @click.option(
-    "--reuse-nostr-keys",
-    "reuse_keys",
+    "--daemon",
+    "daemon",
     is_flag=True,
-    default=False,
-    help="Use this flag to reuse existing Nostr keys under "
-    "output/nostr-keys.json. Default is to "
-    "automatically regenerate new keys each time publsp is launched "
-    "for improved privacy.",
+    default=LspSettings().daemon,
+    help="run publsp in daemon mode to skip the interactive menu, useful for "
+    "automating publsp"
 )
 def lspargs(**kwargs):
     """

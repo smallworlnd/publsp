@@ -161,20 +161,16 @@ class OrderResponseHandler:
         # 1.
         logger.debug('validating order response')
         decoded_payreq = lndecode(order_resp.payment.bolt11.invoice)
-        print(f'decoded payreq amount: {decoded_payreq.amount}')
         receiver_pubkey = hexlify(decoded_payreq.pubkey.serialize()).decode('utf-8')
         invoice_order_total_sat = round(float(decoded_payreq.amount)*1e8)
-        print(f'invocie order total sat: {invoice_order_total_sat}')
         requested_capacity = self.opts.get('lsp_balance_sat') \
             + self.opts.get('client_balance_sat')
         expected_fee_total = int(
             self.selected_ad.fixed_cost_sats +
             self.selected_ad.variable_cost_ppm*1e-6*requested_capacity
         )
-        print(f'expected fee total {expected_fee_total}')
         expected_total_cost = expected_fee_total \
             + self.opts.get('client_balance_sat')
-        print(f'expected total cost: {expected_total_cost}')
         # 2.
         if self.selected_ad.lsp_pubkey != receiver_pubkey:
             err = f'invoice does not originate from LSP, got {receiver_pubkey}'

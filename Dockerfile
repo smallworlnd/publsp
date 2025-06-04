@@ -1,6 +1,6 @@
 FROM python:3.12-slim AS base
 ARG  DEV=0
-ENV  POETRY_VERSION=2.0.1 \
+ENV  POETRY_VERSION=2.1.1 \
   PYTHONUNBUFFERED=1 \
   PYTHONDONTWRITEBYTECODE=1 \
   PIP_NO_CACHE_DIR=off \
@@ -30,4 +30,4 @@ ENV VIRTUAL_ENV=/app/.venv \
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 WORKDIR /app
 COPY . .
-ENTRYPOINT ["python", "-m", "publsp.main"]
+ENTRYPOINT ["dumb-init", "--", "python", "-m", "publsp.main"]
