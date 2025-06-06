@@ -97,6 +97,28 @@ publsp lsp \
   --permissions-file-path /path/to/admin.macaroon \
   --cert-file-path /path/to/tls.cert
 ```
+
+Or you can bake a macaroon with only the required permissions for tighter control:
+
+```bash
+lncli bakemacaroon --save_to /path/to/lnd/data/chain/bitcoin/mainnet/publsp.macaroon \
+  info:read onchain:read offchain:read invoices:read \
+  uri:/lnrpc.Lightning/OpenChannel \
+  uri:/lnrpc.Lightning/OpenChannelSync \
+  uri:/lnrpc.Lightning/PendingChannels \
+  uri:/lnrpc.Lightning/SendCustomMessage \
+  uri:/invoicesrpc.Invoices/AddHoldInvoice \
+  uri:/invoicesrpc.Invoices/CancelInvoice \
+  uri:/invoicesrpc.Invoices/SubscribeSingleInvoice \
+  uri:/invoicesrpc.Invoices/SettleInvoice
+
+# use the freshly baked macaroon
+publsp lsp \
+  --node lnd \
+  --rest-host http://127.0.0.1:8081 \
+  --permissions-file-path /path/to/lnd/data/chain/bitcoin/mainnet/publsp.macaroon \
+  --cert-file-path /path/to/tls.cert
+```
 This will drop you into an interactive REPL to:
 1. Publish or update your ad
 2. View your current active ad

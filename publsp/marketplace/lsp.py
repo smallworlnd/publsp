@@ -20,6 +20,7 @@ from publsp.blip51.order import (
     Payment,
 )
 from publsp.blip51.payment import Bolt11, HodlInvoiceState
+from publsp.blip51.utils import calculate_lease_cost
 from publsp.ln.requesthandlers import (
     ChannelState,
     GetNodeSummaryResponse,
@@ -214,8 +215,12 @@ class OrderHandler:
 
     def get_order_costs(self, order: Order) -> Dict[str, int]:
         ad = self.ad_handler.active_ads.ads[order.d]
-        total_fee = ad.fixed_cost_sats +\
-            ad.variable_cost_ppm * 1e-6 * order.total_capacity
+        total_fee = calculate_lease_cost(
+            fixed_cost=ad.fixed_cost_sats,
+            variable_cost_ppm=ad.variable_cost_ppm,
+            capacity=order.total_capacity,
+            channel_expiry_blocks=order.channel_expiry_blocks
+        )
         total_cost = total_fee + order.client_balance_sat
         return ({'total_fee': total_fee, 'total_cost': total_cost})
 

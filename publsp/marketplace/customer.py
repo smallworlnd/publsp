@@ -13,6 +13,7 @@ from publsp.blip51.order import (
     OrderResponse,
     ValidatedOrderResponse,
 )
+from publsp.blip51.utils import calculate_lease_cost, calculate_apr
 from publsp.ln.invdecoder import lndecode
 from publsp.ln.requesthandlers import ChannelOpenResponse
 from publsp.marketplace.base import AdEventData, MarketplaceAgent
@@ -50,7 +51,6 @@ class CustomerHandler(MarketplaceAgent):
         after running self.get_ad_info we can summarise the cost of
         opening a channel of a given capacity
         """
-        yearly_mined_blocks = int(24*60/10*365)  # ~52560 blocks per year mined
         table = (
             f'{"": <64}'
             f'{"total cost (sats)": >19}'
@@ -65,28 +65,25 @@ class CustomerHandler(MarketplaceAgent):
                     or capacity > ad.max_channel_balance_sat:
                 warning = '**lsp will refuse request of this capacity, ' +\
                     'verify lsp limits**'
-            total_lease_cost = int(
-                ad.fixed_cost_sats +
-                ad.variable_cost_ppm*1e-6*capacity
+            lease_cost = calculate_lease_cost(
+                fixed_cost=ad.fixed_cost_sats,
+                variable_cost_ppm=ad.variable_cost_ppm,
+                capacity=capacity,
+                channel_expiry_blocks=ad.max_channel_expiry_blocks
             )
-            sats_per_block = round(
-                total_lease_cost/ad.max_channel_expiry_blocks,
-                3
-            )
-            annual_rate = round(
-                (total_lease_cost / capacity)
-                * (yearly_mined_blocks / ad.max_channel_expiry_blocks)
-                * 100,
-                2
+            apr = calculate_apr(
+                fixed_cost=ad.fixed_cost_sats,
+                variable_cost_ppm=ad.variable_cost_ppm,
+                capacity=capacity,
+                max_channel_expiry_blocks=ad.max_channel_expiry_blocks
             )
             table += (
                 f'{warning: <64}\n'
                 f'{"ad id: " + str(ad.d): <64}\n'
                 f'nostr key: \n'
                 f'{ad_nostr_pubkey: <64}'
-                f'{total_lease_cost: >18}'
-                f'{sats_per_block: >12}'
-                f'{annual_rate: >21}\n'
+                f'{lease_cost: >18}'
+                f'{apr: >21}\n'
                 f'ln node key: \n'
                 f'{ad.lsp_pubkey: <65}\n\n'
                 f'{"-" * 116}\n'
@@ -165,11 +162,14 @@ class OrderResponseHandler:
         invoice_order_total_sat = round(float(decoded_payreq.amount)*1e8)
         requested_capacity = self.opts.get('lsp_balance_sat') \
             + self.opts.get('client_balance_sat')
-        expected_fee_total = int(
-            self.selected_ad.fixed_cost_sats +
-            self.selected_ad.variable_cost_ppm*1e-6*requested_capacity
+        channel_expiry_blocks = self.opts.get('channel_expiry_blocks')
+        expected_total_fee = calculate_lease_cost(
+            fixed_cost=self.selected_ad.fixed_cost_sats,
+            variable_cost_ppm=self.selected_ad.variable_cost_ppm,
+            capacity=requested_capacity,
+            channel_expiry_blocks=channel_expiry_blocks
         )
-        expected_total_cost = expected_fee_total \
+        expected_total_cost = expected_total_fee \
             + self.opts.get('client_balance_sat')
         # 2.
         if self.selected_ad.lsp_pubkey != receiver_pubkey:
@@ -186,10 +186,10 @@ class OrderResponseHandler:
             logger.error(err)
             return ValidatedOrderResponse(is_valid=False, error_message=err)
         # 4.
-        if expected_fee_total != order_resp.payment.bolt11.fee_total_sat:
+        if expected_total_fee != order_resp.payment.bolt11.fee_total_sat:
             err = (
-                f'expected a fee total of {expected_fee_total} '
-                'but got {order_resp.payment.bolt11.fee_total_sat} '
+                f'expected a fee total of {expected_total_fee} '
+                f'but got {order_resp.payment.bolt11.fee_total_sat} '
                 'in the order response')
             logger.error(err)
             return ValidatedOrderResponse(is_valid=False, error_message=err)

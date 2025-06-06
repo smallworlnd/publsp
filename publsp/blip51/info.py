@@ -38,7 +38,6 @@ class CostEstimate(BaseModel):
     d: str
     lsp_pubkey: str
     total_cost_sats: int
-    sats_per_block: float
     annualized_rate_percent: float
     min_channel_balance_sat: int
     max_channel_balance_sat: int

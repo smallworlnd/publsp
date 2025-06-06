@@ -51,7 +51,7 @@ class UserSession:
                 client_for="customer",
                 reuse_keys=False,
                 write_keys=False,
-                ask_encrypt=False
+                encrypt_keys=False
             )
             self.rumor_handler = RumorHandler()
             self.customer_handler = CustomerHandler(

@@ -4,6 +4,7 @@ import sys
 import logging
 from typing import Awaitable, Callable, List
 
+from publsp.blip51.utils import calculate_lease_cost
 from publsp.cli.basecli import BaseCLI
 from publsp.nostr.client import NostrClient
 from publsp.nostr.nip17 import RumorHandler, Nip17Listener
@@ -156,8 +157,11 @@ class CustomerCLI(BaseCLI):
 
         ad = ads.ads[choice]
         order = self.customer_handler.build_order(ad_id=choice)
-        expected_cost = int(
-            ad.fixed_cost_sats + ad.variable_cost_ppm * 1e-6 * order.total_capacity
+        expected_cost = calculate_lease_cost(
+            fixed_cost=ad.fixed_cost_sats,
+            variable_cost_ppm=ad.variable_cost_ppm,
+            capacity=order.total_capacity,
+            channel_expiry_blocks=order.channel_expiry_blocks
         )
         peer_pk = ads.get_nostr_pubkey(ad_id=choice, as_PublicKey=True)
         click.echo(

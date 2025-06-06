@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from publsp.api.session import UserSession
 from publsp.api.utils import get_user_session
 from publsp.blip51.info import Ad, CostEstimate, CostEstimateList
+from publsp.blip51.utils import calculate_lease_cost, calculate_apr
 
 
 class AdMetaInfo(Ad):
@@ -15,6 +16,8 @@ class AdMetaInfo(Ad):
     num_channels: Optional[int] = None
     median_outbound_ppm: Optional[int] = None
     median_inbound_ppm: Optional[int] = None
+    min_apr: Optional[float] = None
+    max_apr: Optional[float] = None
 
 
 class AdList(BaseModel):
@@ -52,6 +55,18 @@ async def list_ads(
         event_content = ads_data.parse_event_content(ad_id=ad_id)
         node_info = event_content.get('node_stats', {})
         value_prop = event_content.get('lsp_message')
+        min_apr = calculate_apr(
+            fixed_cost=ad.fixed_cost_sats,
+            variable_cost_ppm=ad.variable_cost_ppm,
+            capacity=ad.min_channel_balance_sat,
+            max_channel_expiry_blocks=ad.max_channel_expiry_blocks
+        )
+        max_apr = calculate_apr(
+            fixed_cost=ad.fixed_cost_sats,
+            variable_cost_ppm=ad.variable_cost_ppm,
+            capacity=ad.max_channel_balance_sat,
+            max_channel_expiry_blocks=ad.max_channel_expiry_blocks
+        )
 
         enhanced_ad = AdMetaInfo(
             # Core Ad fields
@@ -79,7 +94,9 @@ async def list_ads(
             total_capacity=node_info.get("total_capacity"),
             num_channels=node_info.get("num_channels"),
             median_outbound_ppm=node_info.get("median_outbound_ppm"),
-            median_inbound_ppm=node_info.get("median_inbound_ppm")
+            median_inbound_ppm=node_info.get("median_inbound_ppm"),
+            min_apr=min_apr,
+            max_apr=max_apr
         )
         enhanced_ads.append(enhanced_ad)
 
@@ -106,7 +123,6 @@ async def estimate_costs_all_ads(
         return CostEstimateList(estimates=[])
 
     estimates = []
-    yearly_mined_blocks = int(24*60/10*365)  # ~52560 blocks per year mined
 
     # Calculate costs for each ad
     for ad_id, ad in ads_data.ads.items():
@@ -115,19 +131,24 @@ async def estimate_costs_all_ads(
                 or capacity > ad.max_channel_balance_sat:
             continue
 
-        total_lease_cost = int(ad.fixed_cost_sats + ad.variable_cost_ppm*1e-6*capacity)
-        sats_per_block = round(total_lease_cost/ad.max_channel_expiry_blocks, 3)
-        annual_rate = round(
-            (total_lease_cost / capacity) * (yearly_mined_blocks / ad.max_channel_expiry_blocks) * 100,
-            2
+        lease_cost = calculate_lease_cost(
+            fixed_cost=ad.fixed_cost_sats,
+            variable_cost_ppm=ad.variable_cost_ppm,
+            capacity=capacity,
+            channel_expiry_blocks=ad.max_channel_expiry_blocks
+        )
+        apr = calculate_apr(
+            fixed_cost=ad.fixed_cost_sats,
+            variable_cost_ppm=ad.variable_cost_ppm,
+            capacity=capacity,
+            max_channel_expiry_blocks=ad.max_channel_expiry_blocks
         )
 
         estimates.append(CostEstimate(
             d=ad_id,
             lsp_pubkey=ad.lsp_pubkey,
-            total_cost_sats=total_lease_cost,
-            sats_per_block=sats_per_block,
-            annualized_rate_percent=annual_rate,
+            total_cost_sats=lease_cost,
+            annualized_rate_percent=apr,
             min_channel_balance_sat=ad.min_channel_balance_sat,
             max_channel_balance_sat=ad.max_channel_balance_sat
         ))
@@ -169,20 +190,24 @@ async def estimate_cost(
         )
 
     # Calculate costs
-    yearly_mined_blocks = int(24*60/10*365)  # ~52560 blocks per year mined
-    total_lease_cost = int(ad.fixed_cost_sats + ad.variable_cost_ppm*1e-6*capacity)
-    sats_per_block = round(total_lease_cost/ad.max_channel_expiry_blocks, 3)
-    annual_rate = round(
-        (total_lease_cost / capacity) * (yearly_mined_blocks / ad.max_channel_expiry_blocks) * 100,
-        2
+    lease_cost = calculate_lease_cost(
+        fixed_cost=ad.fixed_cost_sats,
+        variable_cost_ppm=ad.variable_cost_ppm,
+        capacity=capacity,
+        channel_expiry_blocks=ad.max_channel_expiry_blocks
+    )
+    apr = calculate_apr(
+        fixed_cost=ad.fixed_cost_sats,
+        variable_cost_ppm=ad.variable_cost_ppm,
+        capacity=capacity,
+        max_channel_expiry_blocks=ad.max_channel_expiry_blocks
     )
 
     return CostEstimate(
         d=ad_id,
         lsp_pubkey=ad.lsp_pubkey,
-        total_cost_sats=total_lease_cost,
-        sats_per_block=sats_per_block,
-        annualized_rate_percent=annual_rate,
+        total_cost_sats=lease_cost,
+        annualized_rate_percent=apr,
         min_channel_balance_sat=ad.min_channel_balance_sat,
         max_channel_balance_sat=ad.max_channel_balance_sat
     )
@@ -212,6 +237,18 @@ async def get_ad_by_id(
     event_content = ads_data.parse_event_content(ad_id=ad_id)
     node_info = event_content.get('node_stats', {})
     value_prop = event_content.get('lsp_message')
+    min_apr = calculate_apr(
+        fixed_cost=ad.fixed_cost_sats,
+        variable_cost_ppm=ad.variable_cost_ppm,
+        capacity=ad.min_channel_balance_sat,
+        max_channel_expiry_blocks=ad.max_channel_expiry_blocks
+    )
+    max_apr = calculate_apr(
+        fixed_cost=ad.fixed_cost_sats,
+        variable_cost_ppm=ad.variable_cost_ppm,
+        capacity=ad.max_channel_balance_sat,
+        max_channel_expiry_blocks=ad.max_channel_expiry_blocks
+    )
 
     return AdMetaInfo(
         # Core Ad fields
@@ -239,5 +276,7 @@ async def get_ad_by_id(
         total_capacity=node_info.get("total_capacity"),
         num_channels=node_info.get("num_channels"),
         median_outbound_ppm=node_info.get("median_outbound_ppm"),
-        median_inbound_ppm=node_info.get("median_inbound_ppm")
+        median_inbound_ppm=node_info.get("median_inbound_ppm"),
+        min_apr=min_apr,
+        max_apr=max_apr
     )

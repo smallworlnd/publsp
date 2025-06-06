@@ -52,12 +52,14 @@ async def create_order(
     # Update the handler with the current order parameters for validation
     session.order_response_handler.opts.update({
         'lsp_balance_sat': order.lsp_balance_sat,
-        'client_balance_sat': order.client_balance_sat
+        'client_balance_sat': order.client_balance_sat,
+        'channel_expiry_blocks': order.channel_expiry_blocks,
     })
     logger.info(
         "Updated handler opts with order parameters: "
         f"lsp_balance_sat={order.lsp_balance_sat}, "
-        f"client_balance_sat={order.client_balance_sat}")
+        f"client_balance_sat={order.client_balance_sat} ",
+        f"channel_expiry_blocks={order.channel_expiry_blocks}")
 
     # Validate the channel capacity
     total_capacity = order.lsp_balance_sat + order.client_balance_sat

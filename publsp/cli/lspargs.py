@@ -85,7 +85,7 @@ from pydantic import ValidationError
     type=int,
     default=AdSettings().max_channel_expiry_blocks,
     show_default=True,
-    help="max lease time in blocks"
+    help="max time in blocks the channel can be leased for"
 )
 # --- channel settings -----------
 @click.option(

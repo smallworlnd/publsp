@@ -62,7 +62,7 @@ class AdEventData:
                 f'{ad.min_funding_confirms_within_blocks}\n'
                 f'{"Supports zero channel reserve": <{indent}}'
                 f'{ad.supports_zero_channel_reserve}\n'
-                f'{"Max channel expiry in blocks": <{indent}}'
+                f'{"Max channel lease time in blocks": <{indent}}'
                 f'{ad.max_channel_expiry_blocks}\n'
                 f'{"Min initial client balance (sats)": <{indent}}'
                 f'{ad.min_initial_client_balance_sat}\n'

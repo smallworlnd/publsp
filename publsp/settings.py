@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.3.1'
+VERSION = '0.3.2'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -185,7 +185,7 @@ class AdSettings(PublspSettings):
     min_required_channel_confirmations: int = Field(default=0)
     min_funding_confirms_within_blocks: int = Field(default=6)
     supports_zero_channel_reserve: bool = Field(default=False)
-    max_channel_expiry_blocks: int = Field(default=52560)
+    max_channel_expiry_blocks: int = Field(default=12960)
     min_initial_client_balance_sat: int = Field(default=0)
     max_initial_client_balance_sat: int = Field(default=10000000)
     min_initial_lsp_balance_sat: int = Field(default=0)
@@ -243,7 +243,7 @@ class OrderSettings(PublspSettings):
     client_balance_sat: int = Field(default=0)
     required_channel_confirmations: int = Field(default=0)
     funding_confirms_within_blocks: int = Field(default=6)
-    channel_expiry_blocks: int = Field(default=13000)
+    channel_expiry_blocks: int = Field(default=4320)
     token: Optional[str] = Field(default='')
     refund_onchain_address: Optional[str] = Field(default='')
     announce_channel: bool = Field(default=True)
@@ -343,8 +343,8 @@ class NostrSettings(PublspSettings):
 
 class ApiSettings(PublspSettings):
     interval_minutes: int = 10
-    max_idle_minutes: int = 90
-    max_listen_minutes: int = 60
+    max_idle_minutes: int = 120
+    max_listen_minutes: int = 100
 
 
 class LspSettings(
