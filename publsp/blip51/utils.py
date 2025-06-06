@@ -11,9 +11,7 @@ def calculate_lease_cost(
     lease time (smaller than the LSPs max) so the yearly ppm on capacity needs
     to be pro-rated to the requested lease time
     """
-    capacity_ppm = fixed_cost + variable_cost_ppm * 1e-6 * capacity
-    prorated_period = channel_expiry_blocks / YEARLY_MINED_BLOCKS
-    return round(capacity_ppm * prorated_period)
+    return fixed_cost + variable_cost_ppm * 1e-6 * capacity
 
 
 def calculate_apr(
