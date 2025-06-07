@@ -171,6 +171,31 @@ docker run -d --rm --network "host" --name publsp \
 
 Make sure to include the options with your desired settings either on the command line, or set them in a `.env` file, see the `.env.example` for ideas. Have a look at the output from the daemon to verify your ad settings.
 
+##### Hot-reloading the `.env` file for dynamic ad updates
+
+While `publsp` is running, you can also modify fields related to the LSP Ad settings in the `.env` file to "hot-reload" the ad. In other words, any modifications to these settings will be picked up and `publsp` will re-publish your ad with the new settings.
+
+```bash
+# LSP Ad settings example
+MIN_REQUIRED_CHANNEL_CONFIRMATIONS=0
+MIN_FUNDING_CONFIRMS_WITHIN_BLOCKS=6
+SUPPORTS_ZERO_CHANNEL_RESERVE=False
+MAX_CHANNEL_EXPIRY_BLOCKS=12920
+MIN_INITIAL_CLIENT_BALANCE_SAT=0
+MAX_INITIAL_CLIENT_BALANCE_SAT=10000000
+MIN_INITIAL_LSP_BALANCE_SAT=0
+MAX_INITIAL_LSP_BALANCE_SAT=10000000
+MIN_CHANNEL_BALANCE_SAT=1000000
+MAX_CHANNEL_BALANCE_SAT=10000000
+FIXED_COST_SATS=100
+VARIABLE_COST_PPM=1000
+MAX_PROMISED_FEE_RATE=2500
+MAX_PROMISED_BASE_FEE=1
+VALUE_PROP="your value prop here"
+```
+
+**This approach is strongly recommended if you intend to frequently update ads** to avoid potentially breaking active order flows that could otherwise happen if restarting `publsp` to update settings.
+
 ### Customer Mode
 
 ```bash
