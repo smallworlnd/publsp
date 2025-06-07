@@ -1,7 +1,9 @@
 import asyncio
 import click
+import os
 import signal
 from functools import partial
+from pathlib import Path
 from typing import Callable, Awaitable
 
 from publsp.cli.basecli import BaseCLI
@@ -10,7 +12,12 @@ from publsp.ln.lnd import LndBackend
 from publsp.nostr.client import NostrClient
 from publsp.nostr.nip17 import RumorHandler, Nip17Listener
 from publsp.marketplace.lsp import AdHandler, OrderHandler
-from publsp.settings import CustomAdSettings, LnImplementation
+from publsp.settings import (
+    AdSettings,
+    CustomAdSettings,
+    LnImplementation,
+    PublspSettings,
+)
 
 import logging
 logger = logging.getLogger(name=__name__)
@@ -24,10 +31,13 @@ async def async_prompt(text: str) -> str:
 class LspCLI(BaseCLI):
     def __init__(self, **kwargs):
         # state
-        self._shutdown_event = None  # Will be created when event loop is running
+        self._shutdown_event = None  # created when event loop is running
         self.daemon_mode = kwargs.get('daemon')
         msg = kwargs.get('value_prop')
         self.marketing_content = msg if msg else CustomAdSettings().value_prop
+
+        # Store kwargs for potential reload
+        self._init_kwargs = kwargs
 
         rest_host = kwargs.get('rest_host')
         permissions_file_path = kwargs.get('permissions_file_path')
@@ -63,6 +73,10 @@ class LspCLI(BaseCLI):
             nostr_client=self.nostr_client,
         )
 
+        # File watching state for hot reload
+        self._env_file_mtime = None
+        self._env_watcher_task = None
+
         # menu command registry: key -> (description, coroutine handler)
         self.commands: dict[str, tuple[str, Callable[[], Awaitable[None]]]] = {
             "1": (
@@ -74,29 +88,9 @@ class LspCLI(BaseCLI):
             "4": ("Exit", self.cmd_exit),
         }
 
-    def _setup_signal_handlers(self):
-        """Setup signal handlers for graceful shutdown (especially for Docker)."""
-        import signal
-        import os
-
-        # Log PID for debugging
-        logger.info(f"Setting up signal handlers for PID {os.getpid()}")
-
-        def signal_handler(signum, frame):
-            signal_name = signal.Signals(signum).name
-            logger.info(f"Received {signal_name} signal, triggering shutdown...")
-            # Signal the event to wake up any waiting tasks
-            if self._shutdown_event:
-                # Use call_soon_threadsafe since signal handler runs in different thread
-                loop = asyncio.get_event_loop()
-                loop.call_soon_threadsafe(self._shutdown_event.set)
-                logger.info("Shutdown event set via call_soon_threadsafe")
-            else:
-                logger.warning("Shutdown event not available!")
-
-        # Handle SIGTERM from Docker
-        signal.signal(signal.SIGTERM, signal_handler)
-        logger.info("SIGTERM handler registered")
+    # ------------------------------------------
+    # start/stop
+    # ------------------------------------------
 
     async def startup(self) -> None:
         """Connect relays and start background listeners."""
@@ -106,16 +100,18 @@ class LspCLI(BaseCLI):
 
     async def shutdown(self) -> None:
         """Tear down ads, listeners, relays, then exit."""
+        # Cancel the env file watcher if running
+        if self._env_watcher_task and not self._env_watcher_task.done():
+            self._env_watcher_task.cancel()
+            try:
+                await self._env_watcher_task
+            except asyncio.CancelledError:
+                pass
+
         await self.ad_handler.update_ad_events()
         await self.order_handler.stop()
         await self.nip17_listener.stop()
         await self.nostr_client.disconnect_relays()
-
-    def _render_menu(self) -> None:
-        menu = "\nChoose an option:\n"
-        for key, (desc, _) in self.commands.items():
-            menu += f"  {key}. {desc}\n"
-        click.echo(menu)
 
     # ------------------------------------------
     # Command handlers
@@ -142,11 +138,110 @@ class LspCLI(BaseCLI):
     # Helpers
     # ------------------------------------------
 
+    def _render_menu(self) -> None:
+        menu = "\nChoose an option:\n"
+        for key, (desc, _) in self.commands.items():
+            menu += f"  {key}. {desc}\n"
+        click.echo(menu)
+
     def _render_active_ad(self) -> None:
         if self.ad_handler.active_ads:
             click.echo(self.ad_handler.active_ads)
         else:
             click.echo("\nNo active ads")
+
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown (especially for Docker)."""
+        # Log PID for debugging
+        logger.info(f"Setting up signal handlers for PID {os.getpid()}")
+
+        def signal_handler(signum, frame):
+            signal_name = signal.Signals(signum).name
+            logger.info(f"Received {signal_name} signal, triggering shutdown...")
+            # Signal the event to wake up any waiting tasks
+            if self._shutdown_event:
+                # Use call_soon_threadsafe since signal handler runs in different thread
+                loop = asyncio.get_event_loop()
+                loop.call_soon_threadsafe(self._shutdown_event.set)
+                logger.info("Shutdown event set via call_soon_threadsafe")
+            else:
+                logger.warning("Shutdown event not available!")
+
+        # Handle SIGTERM from Docker
+        signal.signal(signal.SIGTERM, signal_handler)
+        logger.info("SIGTERM handler registered")
+
+    def _get_env_file_mtime(self, file_path: str) -> float:
+        """Get the modification time of the .env file."""
+        try:
+            return os.path.getmtime(file_path)
+        except (OSError, FileNotFoundError):
+            return 0.0
+
+    async def _reload_ad_handler(self):
+        """Reload the ad_handler with new AdSettings from .env file."""
+        try:
+            logger.info("Hot reloading ad changes...")
+
+            new_ad_settings = AdSettings()
+
+            # Check if different from current
+            current_options = self.ad_handler.options
+            new_options = new_ad_settings.model_dump()
+
+            if current_options == new_options:
+                logger.info("No AdSettings changes detected")
+                return
+
+            logger.info("AdSettings changed, reloading...")
+
+            # Create new AdHandler with updated AdSettings
+            updated_kwargs = self._init_kwargs.copy()
+            updated_kwargs.update(new_options)
+
+            self.ad_handler = AdHandler(
+                nostr_client=self.nostr_client,
+                ln_backend=self.ln_backend,
+                **updated_kwargs,
+            )
+
+            self.order_handler.ad_handler = self.ad_handler
+            await self.cmd_publish_ad(self.marketing_content)
+
+            logger.info("Hot reload completed")
+
+        except Exception as e:
+            logger.error(f"Error during hot reload: {e}")
+
+    async def _watch_env_file(self):
+        """Watch for changes to the .env file and trigger hot reload."""
+        # Use the PublspSettings class to determine which env file to watch
+        env_file_path = PublspSettings().env_file
+        file_path = Path(env_file_path)
+
+        logger.info(f"Watching {file_path.as_posix()} for changes...")
+
+        try:
+            last_modified = file_path.stat().st_mtime if file_path.exists() else 0
+
+            while not self._shutdown_event.is_set():
+                try:
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=2.0)
+                    break  # Shutdown was triggered
+                except asyncio.TimeoutError:
+                    pass  # Continue checking
+
+                # Check if file was modified
+                current_modified = file_path.stat().st_mtime if file_path.exists() else 0
+                if current_modified > last_modified:
+                    logger.info(f"Detected changes in {file_path.as_posix()}")
+                    last_modified = current_modified
+                    await self._reload_ad_handler()
+
+        except asyncio.CancelledError:
+            logger.info("Env file watcher cancelled")
+        except Exception as e:
+            logger.error(f"Error in env file watcher: {e}")
 
     # ------------------------------------------
     # Main loop
@@ -165,6 +260,10 @@ class LspCLI(BaseCLI):
                 logger.info("Ad published")
                 logger.info("Running in daemon mode")
                 logger.info("Press Ctrl+C or send SIGTERM to cleanly stop")
+
+                # Start the env file watcher for hot reloading
+                self._env_watcher_task = asyncio.create_task(self._watch_env_file())
+                logger.info("Hot reload watcher started for .env file changes")
 
                 # Wait for shutdown event or KeyboardInterrupt
                 await self._shutdown_event.wait()

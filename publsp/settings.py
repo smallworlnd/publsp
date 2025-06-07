@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.3.3'
+VERSION = '0.4.0'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -73,6 +73,35 @@ class PublspSettings(BaseSettings):
     )
     log_level: LogLevel = LogLevel.INFO
     interface: Interface = Interface.CLI
+
+    # Field to expose which env file is actually being used
+    env_file: str = Field(default=".env", description="Path to the env file being used")
+
+    def __init__(self, **kwargs):
+        # Determine which env file will be used using the same logic as settings_customise_sources
+        self._determined_env_file = self._determine_env_file()
+        # Set the env_file field to the determined value
+        kwargs.setdefault('env_file', self._determined_env_file)
+        super().__init__(**kwargs)
+
+    @classmethod
+    def _determine_env_file(cls) -> str:
+        """Determine which env file to use based on ENVIRONMENT setting in base .env"""
+        base_path = Path(".env")
+        if base_path.is_file():
+            base_vars = DotEnvSettingsSource._static_read_env_file(
+                base_path,
+                encoding="utf-8",
+                case_sensitive=False,
+                ignore_empty=False,
+                parse_none_str=None,
+            )
+        else:
+            base_vars = {}
+
+        # Choose .env.dev or .env using the same logic as settings_customise_sources
+        env = base_vars.get("environment", Environment.PROD.value)
+        return ".env.dev" if env.upper() == Environment.DEV.name else ".env"
 
     @classmethod
     def settings_customise_sources(
@@ -139,7 +168,7 @@ class EnvironmentSettings(PublspSettings):
         raise ValueError(f"Environment must be a str or Environment enum, got {value!r}")
 
 
-class LnBackendSettings(PublspSettings):
+class LnBackendSettings(BaseSettings):
     node: Optional[LnImplementation] = Field(default=None)
     rest_host: Optional[HttpUrl] = Field(default=None)
     permissions_file_path: Optional[FilePath] = Field(default=None)

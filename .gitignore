@@ -6,6 +6,7 @@ nostr-keys.json
 nak
 log.txt
 TODO.md
+*.swp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
