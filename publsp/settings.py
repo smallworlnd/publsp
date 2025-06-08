@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.4.1'
+VERSION = '0.4.2'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -212,7 +212,7 @@ class LnBackendSettings(BaseSettings):
 class AdSettings(PublspSettings):
     status: AdStatus = Field(default=AdStatus.ACTIVE)
     min_required_channel_confirmations: int = Field(default=0)
-    min_funding_confirms_within_blocks: int = Field(default=6)
+    min_funding_confirms_within_blocks: int = Field(default=2)
     supports_zero_channel_reserve: bool = Field(default=False)
     max_channel_expiry_blocks: int = Field(default=12960)
     min_initial_client_balance_sat: int = Field(default=0)
@@ -225,6 +225,15 @@ class AdSettings(PublspSettings):
     variable_cost_ppm: int = Field(default=10000)
     max_promised_fee_rate: int = Field(default=2500)
     max_promised_base_fee: int = Field(default=1)
+
+    @field_validator('min_funding_confirms_within_blocks')
+    def validate_greater_than_one(v: Optional[int]) -> Optional[int]:
+        if v > 1:
+            return v
+        else:
+            raise ValueError(
+                'min_funding_confirms_within_blocks must be 2 (the fastest) '
+                'or greater, according to the API')
 
     @field_validator(
         'min_funding_confirms_within_blocks',

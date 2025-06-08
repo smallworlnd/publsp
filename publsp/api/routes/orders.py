@@ -54,12 +54,15 @@ async def create_order(
         'lsp_balance_sat': order.lsp_balance_sat,
         'client_balance_sat': order.client_balance_sat,
         'channel_expiry_blocks': order.channel_expiry_blocks,
+        'funding_confirms_within_blocks': order.funding_confirms_within_blocks,
     })
     logger.info(
         "Updated handler opts with order parameters: "
         f"lsp_balance_sat={order.lsp_balance_sat}, "
         f"client_balance_sat={order.client_balance_sat} ",
-        f"channel_expiry_blocks={order.channel_expiry_blocks}")
+        f"channel_expiry_blocks={order.channel_expiry_blocks}"
+        f"funding_confirms_within_blocks={order.funding_confirms_within_blocks}"
+    )
 
     # Validate the channel capacity
     total_capacity = order.lsp_balance_sat + order.client_balance_sat
