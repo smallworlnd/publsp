@@ -332,12 +332,13 @@ class LndBackend(NodeBase):
         https://lightning.engineering/api-docs/api/lnd/lightning/open-channel/
         """
         data = {
-          'target_conf': order.funding_confirms_within_blocks,
           'node_pubkey': order.pubkey_base64,
           'local_funding_amount': str(order.total_capacity),
           'push_sat': str(order.client_balance_sat),
           'private': False if order.announce_channel else True,
-          'min_confs': order.required_channel_confirmations,
+          # set these to defaults for now to get fastest confirmation times
+          #'min_confs': order.required_channel_confirmations,
+          #'target_conf': order.funding_confirms_within_blocks,
         }
         endpoint = '/v1/channels/stream'
         # TODO: need some connection retry logic here in case the stream

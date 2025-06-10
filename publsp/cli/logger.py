@@ -1,4 +1,5 @@
 import logging
+from nostr_sdk import init_logger, LogLevel
 
 
 class LoggerSetup:
@@ -8,8 +9,9 @@ class LoggerSetup:
     def setup_logging(self):
         # 1) configure the root logger however you like
         level = getattr(logging, self.log_level.upper(), logging.INFO)
+        init_logger(LogLevel[self.log_level.upper()])
         logging.basicConfig(
-            format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
             level=level,
         )
 
