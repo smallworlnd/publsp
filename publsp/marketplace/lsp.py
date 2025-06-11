@@ -196,9 +196,22 @@ class OrderHandler:
         # validate the order request first
         checked_order = order.validate_order(ad=ad)
         if not checked_order.is_valid:
+            logger.error("order has an invalid option, cancelling")
             return OrderErrorResponse(
                 code=checked_order.error_code,
                 error_message=checked_order.error_message
+            )
+
+        # verify that we have enough funds to fill the order
+        # need sum of confirmed utxos, less reserve amount, to be greater than
+        # order total capacity
+        utxos = await self.ln_backend.get_utxo_set()
+        reserve = await self.ln_backend.get_reserve_amount()
+        if utxos.spendable_amount - reserve.required_reserve < order.total_capacity:
+            logger.error("order total capacity greater than available utxo set")
+            return OrderErrorResponse(
+                code=OrderErrorCode.invalid_params,
+                error_message="LSP could not successfully fill order at this moment, please try again later"
             )
 
         # try connecting to pubkey uri to make sure we can open channel
@@ -207,6 +220,7 @@ class OrderHandler:
             pubkey_uri=order.target_pubkey_uri
         )
         if not peer_connection:
+            logger.error("failed to connect to peer, cancelling order")
             return OrderErrorResponse(
                 code=OrderErrorCode.connection_error,
                 error_message=f'Could not connect to {order.pubkey_uri}, '
@@ -315,7 +329,7 @@ class OrderHandler:
         client_nostr_pubkey = rumor.author()
         err = await self.verify_order_and_connection(order)
         if isinstance(err, OrderErrorResponse):
-            logger.error(f'something went wrong: {err.error_message}')
+            logger.info(f'notifying client of error: {err.error_message}')
             return await self.nostr_client.send_private_msg(
                 client_nostr_pubkey,
                 'failed to process order',

@@ -2,14 +2,12 @@ import codecs
 import httpx
 import json
 import logging
-import os
 import statistics
 from typing import Any, AsyncIterator, Dict
 
 from publsp.blip51.order import Order
-from publsp.ln.base import NodeBase
+from publsp.ln.base import NodeBase, Utxo, UtxoOutpoint
 from publsp.ln.requesthandlers import (
-    ChainFeeEstimateResponse,
     ChannelState,
     ChannelOpenResponse,
     ConnectPeerResponse,
@@ -17,11 +15,14 @@ from publsp.ln.requesthandlers import (
     HodlInvoiceState,
     GetNodePropertyResponse,
     GetNodeIdResponse,
+    GetUtxosResponse,
     PaymentStatus,
     NodeStatusResponse,
+    WalletReserveResponse,
 )
 
 logger = logging.getLogger(name=__name__)
+GetUtxosResponse.model_rebuild()
 
 
 class LndBackend(NodeBase):
@@ -119,6 +120,21 @@ class LndBackend(NodeBase):
             error_message='could not getinfo'
         )
 
+    async def get_reserve_amount(self) -> WalletReserveResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/wallet-kit/required-reserve/
+        """
+        try:
+            r = await self.http_client.get('/v2/wallet/reserve')
+        except Exception as e:
+            raise Exception(f"failed to get wallet reserve: {e}")
+
+        reserve = r.json().get('required_reserve')
+        if reserve:
+            return WalletReserveResponse(required_reserve=reserve)
+
+        return WalletReserveResponse(required_reserve=0)
+
     def _get_median_fee_rates(self, node_info: Dict[str, Any]) -> Dict[str, int]:
         pubkey = node_info.get("node").get("pub_key")
         outbound = []
@@ -171,6 +187,63 @@ class LndBackend(NodeBase):
         return GetNodePropertyResponse(
             error_message='could not fetch lnd node info'
         )
+
+
+    async def get_utxo_set(
+            self,
+            min_confs: int = None,
+            max_confs: int = None,
+            account: str = None,
+            unconfirmed_only: bool = False) -> GetUtxosResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/wallet-kit/list-unspent/
+        """
+        data = {
+            'min_confs': min_confs,
+            'max_confs': max_confs,
+            'account': account,
+            'unconfirmed_only': unconfirmed_only,
+        }
+        try:
+            r = await self.http_client.post('/v2/wallet/utxos', json=data)
+        except Exception as e:
+            raise Exception(f"failed to get utxo set: {e}")
+
+        if r.is_error:
+            error_message = r.text
+            try:
+                error_message = r.json()["error"]
+            except Exception:
+                pass
+            return GetUtxosResponse(
+                error_message=error_message,
+            )
+
+        data = r.json()
+        utxos_json = data["utxos"]
+
+        if not utxos_json:
+            return GetUtxosResponse(error_message="utxo list empty")
+
+        utxos = list()
+        for line in utxos_json:
+            outpoint = line.get('outpoint')
+            utxo_output = UtxoOutpoint(
+                txid_bytes=outpoint.get('txid_bytes'),
+                txid_str=outpoint.get('txid_str'),
+                output_index=outpoint.get('output_index'),
+            )
+            utxo = Utxo(
+                address_type=line.get('address_type'),
+                address=line.get('address'),
+                amount_sat=line.get('amount_sat'),
+                pk_script=line.get('pk_script'),
+                outpoint=utxo_output,
+                confirmations=line.get('confirmations'),
+            )
+            utxos.append(utxo)
+
+        return GetUtxosResponse(utxos=utxos)
 
     async def create_hodl_invoice(
             self,

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Coroutine
+from typing import AsyncIterator, Coroutine, Optional
+from pydantic import BaseModel, Field
 
 from publsp.blip51.order import Order
 from publsp.ln.requesthandlers import (
@@ -11,6 +12,21 @@ from publsp.ln.requesthandlers import (
     PaymentStatus,
     NodeStatusResponse,
 )
+
+
+class UtxoOutpoint(BaseModel):
+    txid_bytes: Optional[str] = Field(default=None)
+    txid_str: Optional[str] = Field(default=None)
+    output_index: Optional[int] = Field(default=None)
+
+
+class Utxo(BaseModel):
+    address_type: Optional[str] = Field(default=None)
+    address: Optional[str] = Field(default=None)
+    amount_sat: Optional[int] = Field(default=None)
+    pk_script: Optional[str] = Field(default=None)
+    outpoint: Optional[UtxoOutpoint] = Field(default=None)
+    confirmations: Optional[int] = Field(default=None)
 
 
 class NodeBase(ABC):

@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pydantic import BaseModel, model_validator, Field
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from publsp.blip51.mixins import ErrorMessageMixin, NostrTagsMixin
 from publsp.blip51.payment import HodlInvoiceState
@@ -18,10 +18,6 @@ class NodeStatusResponse(BaseModel, ErrorMessageMixin):
 
 class ConnectPeerResponse(BaseModel, ErrorMessageMixin):
     connected: bool
-
-
-class ChainFeeEstimateResponse(BaseModel, ErrorMessageMixin):
-    sats_per_vbyte: Union[int, None]
 
 
 class ChannelState(str, Enum):
@@ -69,6 +65,22 @@ class GetNodeSummaryResponse(GetNodeIdResponse, GetNodePropertyResponse):
     def model_dump_str(self, *args, **kwargs):
         d = super().model_dump(*args, **kwargs)
         return {k: str(v) for k, v in d.items() if v is not None}
+
+
+class WalletReserveResponse(BaseModel, ErrorMessageMixin):
+    required_reserve: Optional[int] = Field(default=None)
+
+
+class GetUtxosResponse(BaseModel, ErrorMessageMixin):
+    utxos: Optional[List["Utxo"]] = Field(default=None)
+
+    @property
+    def spendable_amount(self) -> int:
+        return sum([
+            utxo.amount_sat
+            for utxo in self.utxos
+            if utxo.confirmations >= 3
+        ])
 
 
 @dataclass
