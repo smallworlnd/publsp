@@ -2,8 +2,7 @@ import asyncio
 import click
 import contextlib
 from binascii import hexlify
-from nostr_sdk import UnsignedEvent
-from typing import Union, Optional, Any
+from typing import Union
 
 from publsp.blip51.info import Ad
 from publsp.blip51.order import (
@@ -69,7 +68,8 @@ class CustomerHandler(MarketplaceAgent):
                 fixed_cost=ad.fixed_cost_sats,
                 variable_cost_ppm=ad.variable_cost_ppm,
                 capacity=capacity,
-                channel_expiry_blocks=ad.max_channel_expiry_blocks
+                channel_expiry_blocks=ad.max_channel_expiry_blocks,
+                max_channel_expiry_blocks=ad.max_channel_expiry_blocks
             )
             apr = calculate_apr(
                 fixed_cost=ad.fixed_cost_sats,
@@ -167,7 +167,8 @@ class OrderResponseHandler:
             fixed_cost=self.selected_ad.fixed_cost_sats,
             variable_cost_ppm=self.selected_ad.variable_cost_ppm,
             capacity=requested_capacity,
-            channel_expiry_blocks=channel_expiry_blocks
+            channel_expiry_blocks=channel_expiry_blocks,
+            max_channel_expiry_blocks=self.selected_ad.max_channel_expiry_blocks
         )
         expected_total_cost = expected_total_fee \
             + self.opts.get('client_balance_sat')

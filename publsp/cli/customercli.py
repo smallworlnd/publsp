@@ -161,7 +161,8 @@ class CustomerCLI(BaseCLI):
             fixed_cost=ad.fixed_cost_sats,
             variable_cost_ppm=ad.variable_cost_ppm,
             capacity=order.total_capacity,
-            channel_expiry_blocks=order.channel_expiry_blocks
+            channel_expiry_blocks=order.channel_expiry_blocks,
+            max_channel_expiry_blocks=ad.max_channel_expiry_blocks
         )
         peer_pk = ads.get_nostr_pubkey(ad_id=choice, as_PublicKey=True)
         click.echo(

@@ -135,7 +135,8 @@ async def estimate_costs_all_ads(
             fixed_cost=ad.fixed_cost_sats,
             variable_cost_ppm=ad.variable_cost_ppm,
             capacity=capacity,
-            channel_expiry_blocks=ad.max_channel_expiry_blocks
+            channel_expiry_blocks=ad.max_channel_expiry_blocks,
+            max_channel_expiry_blocks=ad.max_channel_expiry_blocks
         )
         apr = calculate_apr(
             fixed_cost=ad.fixed_cost_sats,
