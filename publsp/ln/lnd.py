@@ -425,6 +425,7 @@ class LndBackend(NodeBase):
 
                     if line.get("error"):
                         msg = line.get('message')
+                        logger.debug(f'error field in open response: {msg}')
                         yield ChannelOpenResponse(
                             channel_state=ChannelState.UNKNOWN,
                             txid_bytes=None,
@@ -457,13 +458,21 @@ class LndBackend(NodeBase):
                             output_index=output_index
                         )
 
-                except Exception:
+                except Exception as e:
                     # if some error happens then listen for the next line
-                    continue
+                    logger.error(f'unhandled chan open error: {e}')
+                    yield ChannelOpenResponse(
+                        channel_state=ChannelState.UNKNOWN,
+                        txid_bytes=None,
+                        output_index=None,
+                        error_message="LSP could not open channel"
+                    )
 
+        msg = 'channel stream broke, LSP no longer following opening status'
+        logger.error(msg)
         yield ChannelOpenResponse(
             channel_state=ChannelState.UNKNOWN,
             txid_bytes=None,
             output_index=None,
-            error_message='channel stream broke, open state unknown'
+            error_message=msg
         )
