@@ -12,9 +12,11 @@ from publsp.ln.lnd import LndBackend
 from publsp.nostr.client import NostrClient
 from publsp.nostr.nip17 import RumorHandler, Nip17Listener
 from publsp.marketplace.lsp import AdHandler, OrderHandler
+from publsp.nostr.relays import Relays
 from publsp.settings import (
     AdSettings,
     CustomAdSettings,
+    EnvironmentSettings,
     LnImplementation,
     PublspSettings,
 )
@@ -184,10 +186,11 @@ class LspCLI(BaseCLI):
             logger.info("Hot reloading ad changes...")
 
             new_ad_settings = AdSettings()
+            new_value_prop = CustomAdSettings()
 
             # Check if different from current
             current_options = self.ad_handler.options
-            new_options = new_ad_settings.model_dump()
+            new_options = new_ad_settings.model_dump() | new_value_prop.model_dump()
 
             if current_options == new_options:
                 logger.info("No AdSettings changes detected")
@@ -199,19 +202,53 @@ class LspCLI(BaseCLI):
             updated_kwargs = self._init_kwargs.copy()
             updated_kwargs.update(new_options)
 
-            self.ad_handler = AdHandler(
+            # update the ad_handler field and republish the ad
+            new_ad_handler = AdHandler(
                 nostr_client=self.nostr_client,
                 ln_backend=self.ln_backend,
                 **updated_kwargs,
             )
+            await new_ad_handler.publish_ad(content=new_options['value_prop'])
 
-            self.order_handler.ad_handler = self.ad_handler
-            await self.cmd_publish_ad(self.marketing_content)
-
-            logger.info("Hot reload completed")
+            # check to make sure we published the new events and so we can
+            # modify the live objects
+            if hasattr(new_ad_handler.active_ads, 'ads') and new_ad_handler.active_ads.ads:
+                # update the order handler with the latest ad handler
+                self.ad_handler = new_ad_handler
+                self.order_handler.ad_handler = self.ad_handler
+                self._render_active_ad()
+            else:
+                logger.error('error in hot loading new fields, keeping previous')
+                logger.error(f'settings that prevented hot loading: {new_options}')
 
         except Exception as e:
-            logger.error(f"Error during hot reload: {e}")
+            logger.error(f"Error during ad hot reload: {e}")
+
+    async def _reload_relays(self):
+        """
+        Add new relays specified in the .env file to the nostr client but don't
+        disconnect delisted relays until publsp restart in order to avoid mixed
+        status ads on different relays
+        """
+        try:
+            env = EnvironmentSettings().environment
+            current_relays = list(await self.nostr_client.relays())
+
+            added_relays = [
+                relay
+                for relay in Relays().get_relays(env=env)
+                if relay not in current_relays
+            ]
+
+            if added_relays:
+                logger.info('Hot reloading relays...')
+                for relay in added_relays:
+                    await self.nostr_client.add_relay(relay)
+                    added_relay = await self.nostr_client.relay(relay)
+                    added_relay.connect()
+
+        except Exception as e:
+            logger.error(f"Error during hot nostr settings reload: {e}")
 
     async def _watch_env_file(self):
         """Watch for changes to the .env file and trigger hot reload."""
@@ -236,6 +273,7 @@ class LspCLI(BaseCLI):
                 if current_modified > last_modified:
                     logger.info(f"Detected changes in {file_path.as_posix()}")
                     last_modified = current_modified
+                    await self._reload_relays()
                     await self._reload_ad_handler()
 
         except asyncio.CancelledError:
@@ -256,7 +294,7 @@ class LspCLI(BaseCLI):
         try:
             if self.daemon_mode:
                 self._setup_signal_handlers()
-                await self.cmd_publish_ad(self.marketing_content)
+                await self.cmd_publish_ad(content=self.marketing_content)
                 logger.info("Ad published")
                 logger.info("Running in daemon mode")
                 logger.info("Press Ctrl+C or send SIGTERM to cleanly stop")
