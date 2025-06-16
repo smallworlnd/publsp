@@ -330,9 +330,15 @@ class LspCLI(BaseCLI):
             logger.info("Running shutdown cleanup...")
             await self.shutdown()
             logger.info("Shutdown complete")
-            raise SystemExit(0)
 
 
 async def run_lsp_cli(**kwargs):
     cli = LspCLI(**kwargs)
-    await cli.run()
+    try:
+        await cli.run()
+    except Exception as e:
+        # Log the error but don't re-raise SystemExit or other exceptions
+        # that would cause uncaught task exceptions
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in run_lsp_cli: {e}")
+    # Exit cleanly without raising SystemExit inside asyncio

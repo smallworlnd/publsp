@@ -206,6 +206,12 @@ class OrderHandler:
         # need sum of confirmed utxos, less reserve amount, to be greater than
         # order total capacity
         utxos = await self.ln_backend.get_utxo_set()
+        if utxos.error_message:
+            logger.error("could not fetch utxo set to fulfill order")
+            return OrderErrorResponse(
+                code=OrderErrorCode.invalid_params,
+                error_message="LSP could not successfully fill order at this moment, please try again later"
+            )
         reserve = await self.ln_backend.get_reserve_amount()
         if utxos.spendable_amount - reserve.required_reserve < order.total_capacity:
             logger.error("order total capacity greater than available utxo set")

@@ -204,4 +204,15 @@ def lspargs(**kwargs):
         )
 
     # 3) Fire up the CLI
-    asyncio.run(run_lsp_cli(**settings.model_dump()))
+    try:
+        asyncio.run(run_lsp_cli(**settings.model_dump()))
+    except KeyboardInterrupt:
+        # Handle Ctrl+C gracefully
+        click.echo("\nShutdown complete.", err=True)
+        sys.exit(0)
+    except SystemExit:
+        # Re-raise SystemExit to maintain expected behavior
+        raise
+    except Exception as e:
+        click.secho(f"Failed to run LSP: {e}", fg="red", err=True)
+        sys.exit(1)

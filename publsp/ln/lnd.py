@@ -126,8 +126,11 @@ class LndBackend(NodeBase):
         """
         try:
             r = await self.http_client.get('/v2/wallet/reserve')
-        except Exception as e:
-            raise Exception(f"failed to get wallet reserve: {e}")
+        except Exception:
+            return WalletReserveResponse(
+                required_reserve=100000,
+                error_message='failed to get response from ln backend, using max default reserve'
+            )
 
         reserve = r.json().get('required_reserve')
         if reserve:
@@ -207,23 +210,18 @@ class LndBackend(NodeBase):
         try:
             r = await self.http_client.post('/v2/wallet/utxos', json=data)
         except Exception as e:
-            raise Exception(f"failed to get utxo set: {e}")
-
-        if r.is_error:
-            error_message = r.text
-            try:
-                error_message = r.json()["error"]
-            except Exception:
-                pass
-            return GetUtxosResponse(
-                error_message=error_message,
-            )
+            msg = 'failed to connect to ln backend to get utxos'
+            logger.error(msg)
+            logger.error(f'get utxo set error: {e}')
+            return GetUtxosResponse(error_message=msg)
 
         data = r.json()
         utxos_json = data["utxos"]
 
         if not utxos_json:
-            return GetUtxosResponse(error_message="utxo list empty")
+            msg = 'utxo set empty'
+            logger.error(msg)
+            return GetUtxosResponse(error_message=msg)
 
         utxos = list()
         for line in utxos_json:
@@ -257,7 +255,16 @@ class LndBackend(NodeBase):
         try:
             r = await self.http_client.post('/v2/invoices/hodl', json=data)
         except Exception as e:
-            raise Exception(f"failed to create invoice: {e}")
+            msg = 'failed to create hodl invoice'
+            logger.error(msg)
+            logger.error(f"failed to create invoice: {e}")
+            return HodlInvoiceResponse(
+                created=False,
+                inv_hash=base64_hash,
+                payment_request=None,
+                expiry=None,
+                error_message=msg,
+            )
 
         if r.is_error:
             error_message = r.text
@@ -337,7 +344,13 @@ class LndBackend(NodeBase):
         try:
             r = await self.http_client.post('/v2/invoices/settle', json=data)
         except Exception as e:
-            raise Exception(f"failed to settle invoice: {e}")
+            msg = 'could not settle hodl invoice'
+            logger.error(msg)
+            logger.error(f'settle hodl invoice error: {e}')
+            return PaymentStatus(
+                result=HodlInvoiceState.UNKNOWN,
+                error_message=msg
+            )
 
         if not r.json():
             # presumably settled since an empty response implies we released
@@ -373,7 +386,13 @@ class LndBackend(NodeBase):
         try:
             r = await self.http_client.post('/v1/peers', json=data)
         except Exception as e:
-            raise Exception(f"failed to connect to peer: {e}")
+            msg = f'could not connect to peer {pubkey_uri}'
+            logger.error(msg)
+            logger.error(f'connect peer error: {e}')
+            return ConnectPeerResponse(
+                connected=False,
+                error_message=msg
+            )
 
         if r.is_error:
             msg = r.json().get('message')
