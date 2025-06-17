@@ -3,6 +3,7 @@ import contextlib
 import hashlib
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from nostr_sdk import (
@@ -30,7 +31,7 @@ from publsp.marketplace.base import AdEventData, MarketplaceAgent
 from publsp.nostr.client import NostrClient
 from publsp.nostr.kinds import PublspKind
 from publsp.nostr.nip17 import RumorHandler
-from publsp.settings import AdStatus, LnImplementation
+from publsp.settings import AdStatus, LnImplementation, LspSettings
 
 # init_logger(LogLevel.INFO)
 logger = logging.getLogger(name=__name__)
@@ -183,11 +184,14 @@ class OrderHandler:
             ln_backend: LnImplementation,
             ad_handler: AdHandler,
             rumor_handler: RumorHandler,
-            nostr_client: NostrClient):
+            nostr_client: NostrClient,
+            lease_history_file_path: str = LspSettings().lease_history_file_path):
         self.ln_backend = ln_backend
         self.ad_handler = ad_handler
         self.rumor_handler = rumor_handler
         self.nostr_client = nostr_client
+        self.lease_history_file_path = lease_history_file_path
+        self._channel_point: str = None
 
     async def verify_order_and_connection(
             self,
@@ -287,8 +291,9 @@ class OrderHandler:
             preimage: Preimage,
             client_pubkey: PublicKey) -> None:
         """
-        Send a DM for every channel_state update.  When we finally
-        get OPEN, settle the hodl invoice and send a final DM.
+        Send a DM for every channel_state update.  When we finally get OPEN,
+        settle the hodl invoice and send a final DM, and write lease details to
+        file for record-keeping
         """
         async for update in self.ln_backend.open_channel(order=order):
             state = update.channel_state
@@ -301,12 +306,65 @@ class OrderHandler:
             if state == ChannelState.OPEN:
                 # finally release the invoice preimage
                 await self.ln_backend.settle_hodl_invoice(preimage.base64)
+                # send a message saying payment settled
                 await self.nostr_client.send_private_msg(
                     client_pubkey,
                     "Channel tx confirmed, preimage released",
                     rumor_extra_tags=update.model_dump_tags(),
                 )
+                # append channel open details to file
+                channel_point = f'{update.txid_hex}:{update.output_index}'
+                await self._append_lease_sale_to_output_file(
+                    order=order,
+                    preimage=preimage,
+                    channel_point=channel_point
+                )
                 return
+
+    def _read_lease_output_file(self):
+        if os.path.exists(self.lease_history_file_path):
+            with open(self.lease_history_file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            data = {}
+
+        return data
+
+    def _write_lease_output_file(self, lease_history_data):
+        with open(self.lease_history_file_path, "w", encoding="utf-8") as f:
+            json.dump(lease_history_data, f, indent=4)
+
+    async def _append_lease_sale_to_output_file(
+            self,
+            order: Order,
+            preimage: Preimage,
+            channel_point: str):
+        best_block = await self.ln_backend.get_best_block()
+        if best_block.block_height:
+            lease_start_block = best_block.block_height
+            lease_end_block = lease_start_block + order.channel_expiry_blocks
+        else:
+            lease_start_block = best_block.error_message
+            lease_end_block = f'in {order.channel_expiry_blocks} blocks'
+        lease_price = self.get_order_costs(order=order)
+        lease_sale_info = {
+            'pubkey_uri': order.target_pubkey_uri,
+            'lsp_balance_sat': order.lsp_balance_sat,
+            'client_balance_sat': order.client_balance_sat,
+            'total_capacity': order.total_capacity,
+            'channel_expiry_blocks': order.channel_expiry_blocks,
+            'lease_start_block': lease_start_block,
+            'lease_end_block': lease_end_block,
+            'total_fee': lease_price['total_fee'],
+            'total_cost': lease_price['total_cost'],
+            'payment_hash': preimage.hex_hash,
+            'channel_point': channel_point,
+        }
+        lease_history_data = self._read_lease_output_file()
+        lease_history_data.setdefault("leases", [])
+        lease_history_data["leases"].append(lease_sale_info)
+        self._write_lease_output_file(lease_history_data=lease_history_data)
+        logger.debug(f'wrote lease sale data to {self.lease_history_file_path}')
 
     async def process_payment_and_channel_open(
             self,

@@ -13,6 +13,7 @@ from publsp.ln.requesthandlers import (
     ConnectPeerResponse,
     HodlInvoiceResponse,
     HodlInvoiceState,
+    GetBestBlockResponse,
     GetNodePropertyResponse,
     GetNodeIdResponse,
     GetUtxosResponse,
@@ -137,6 +138,29 @@ class LndBackend(NodeBase):
             return WalletReserveResponse(required_reserve=reserve)
 
         return WalletReserveResponse(required_reserve=0)
+
+    async def get_best_block(self) -> GetBestBlockResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/chain-kit/get-best-block/
+        """
+        try:
+            r = await self.http_client.get('/v2/chainkit/bestblock')
+        except Exception:
+            return GetBestBlockResponse(
+                block_hash=None,
+                block_height=None,
+                error_message="could not fetch best block from ln backend"
+            )
+
+        block_hash = r.json().get('block_hash')
+        block_height = r.json().get('block_height')
+        if block_height and block_hash:
+            return GetBestBlockResponse(
+                block_hash=block_hash,
+                block_height=block_height
+            )
+
+        return GetBestBlockResponse(error_message="response 200 did not give block heigh")
 
     def _get_median_fee_rates(self, node_info: Dict[str, Any]) -> Dict[str, int]:
         pubkey = node_info.get("node").get("pub_key")

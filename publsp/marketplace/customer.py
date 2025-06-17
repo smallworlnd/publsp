@@ -53,7 +53,6 @@ class CustomerHandler(MarketplaceAgent):
         table = (
             f'{"": <64}'
             f'{"total cost (sats)": >19}'
-            f'{"sats/block": >12}'
             f'{"annualized rate (%)": >21}\n'
             f'{"-" * 116}\n'
         )

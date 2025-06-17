@@ -177,6 +177,14 @@ from pydantic import ValidationError
     help="run publsp in daemon mode to skip the interactive menu, useful for "
     "automating publsp"
 )
+@click.option(
+    "--lease-history-file-path",
+    'lease_history_file_path',
+    type=click.Path(exists=False, dir_okay=False),
+    default=LspSettings().lease_history_file_path,
+    show_default=True,
+    help="file path to record successful channel lease information"
+)
 def lspargs(**kwargs):
     """
     Launch the interactive LSP REPL with all LN + Ad configuration.

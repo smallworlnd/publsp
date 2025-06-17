@@ -119,33 +119,32 @@ class MarketplaceAgent(ABC):
         """
         required_keys = set(Ad.model_fields.keys())
 
-        evs_and_tags: List[tuple[Event, Dict[str,str]]] = []
+        latest_by_lsp: Dict[Tuple[str, str], Event] = {}
         for ev in events.to_vec():
             # build a dict of this event's tags
             tag_pairs = [tag.as_vec() for tag in ev.tags().to_vec()]
             tags = {k: v for k, v in tag_pairs}
 
             # step 1: does it have every required tag?
-            if not required_keys.issubset(tags):
+            if not required_keys.issubset(tags) or not tags['lsp_pubkey']:
                 continue
 
-            # step 2: drop inactive
-            if not tags.get("lsp_pubkey") or tags.get("status", "").lower() == "inactive":
-                continue
-
-            evs_and_tags.append((ev, tags))
-
-        # 3) group by lsp_pubkey and pick the newest per group
-        latest_by_pair: Dict[Tuple[str,str], Event] = {}
-        for ev, tags in evs_and_tags:
-            pair = (tags["lsp_pubkey"], tags["d"])
-            prev = latest_by_pair.get(pair)
-            # if no existing, or this one is newer, replace it
+            lsp_ad = (tags["lsp_pubkey"], tags["d"])
+            prev = latest_by_lsp.get(lsp_ad)
+            # 2) if no existing, or this one is newer, replace it
             if prev is None or ev.created_at().as_secs() > prev.created_at().as_secs():
-                latest_by_pair[pair] = ev
+                latest_by_lsp[lsp_ad] = ev
+
+        filtered_ad_events = []
+        for latest_event in latest_by_lsp.values():
+            tag_pairs = [tag.as_vec() for tag in latest_event.tags().to_vec()]
+            tags = {k: v for k, v in tag_pairs}
+            # 3) filter for active ads only
+            if tags['status'] == 'active':
+                filtered_ad_events.append(latest_event)
 
         # return just the Events
-        return list(latest_by_pair.values())
+        return filtered_ad_events
 
     def parse_filtered_ads(self, ad_events: [Event]) -> AdEventData:
         ads = {}

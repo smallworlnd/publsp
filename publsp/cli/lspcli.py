@@ -35,6 +35,7 @@ class LspCLI(BaseCLI):
         # state
         self._shutdown_event = None  # created when event loop is running
         self.daemon_mode = kwargs.get('daemon')
+        self.lease_history_file_path = kwargs.get('lease_history_file_path')
         msg = kwargs.get('value_prop')
         self.marketing_content = msg if msg else CustomAdSettings().value_prop
 
@@ -73,6 +74,7 @@ class LspCLI(BaseCLI):
             ad_handler=self.ad_handler,
             rumor_handler=self.rumor_handler,
             nostr_client=self.nostr_client,
+            lease_history_file_path=self.lease_history_file_path
         )
 
         # File watching state for hot reload

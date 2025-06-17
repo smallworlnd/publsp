@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pydantic import BaseModel, model_validator, Field
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from publsp.blip51.mixins import ErrorMessageMixin, NostrTagsMixin
 from publsp.blip51.payment import HodlInvoiceState
@@ -69,6 +69,11 @@ class GetNodeSummaryResponse(GetNodeIdResponse, GetNodePropertyResponse):
 
 class WalletReserveResponse(BaseModel, ErrorMessageMixin):
     required_reserve: Optional[int] = Field(default=None)
+
+
+class GetBestBlockResponse(BaseModel, ErrorMessageMixin):
+    block_hash: Optional[str] = Field(default=None)
+    block_height: Optional[int] = Field(default=None)
 
 
 class GetUtxosResponse(BaseModel, ErrorMessageMixin):

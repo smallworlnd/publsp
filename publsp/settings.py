@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.4.8'
+VERSION = '0.4.9'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -395,7 +395,16 @@ class LspSettings(
         ):
     version: str = Field(default=VERSION)
     daemon: bool = Field(default=False)
+    lease_history_file_path: Optional[str] = Field(default='output/lease-history.json')
 
+    @model_validator(mode='after')
+    def ensure_output_directory_exists(self):
+        """Ensure the output directory exists for nostr keys files"""
+        if self.lease_history_file_path:
+            directory = Path(self.lease_history_file_path).parent
+            directory.mkdir(parents=True, exist_ok=True)
+
+        return self
 
 class CustomerSettings(
         EnvironmentSettings,
