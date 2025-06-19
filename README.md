@@ -107,6 +107,7 @@ lncli bakemacaroon --save_to /path/to/lnd/data/chain/bitcoin/mainnet/publsp.maca
   uri:/lnrpc.Lightning/OpenChannelSync \
   uri:/lnrpc.Lightning/PendingChannels \
   uri:/lnrpc.Lightning/SendCustomMessage \
+  uri:/lnrpc.Lightning/SignMessage \
   uri:/invoicesrpc.Invoices/AddHoldInvoice \
   uri:/invoicesrpc.Invoices/CancelInvoice \
   uri:/invoicesrpc.Invoices/SubscribeSingleInvoice \

@@ -76,9 +76,7 @@ class AdHandler(MarketplaceAgent):
         include_sig_in_ad = kwargs.get('include_node_sig')
         if include_sig_in_ad:
             nostr_pubkey = self.nostr_client.key_handler.keys.public_key().to_hex()
-            print("nostr pubkey: ", nostr_pubkey)
             lsp_sig = await self.ln_backend.sign_message(message=nostr_pubkey)
-            print('nostr pubkey sig: ', lsp_sig.signature)
             lsp_ad.lsp_sig = lsp_sig.signature
         return lsp_ad
 
