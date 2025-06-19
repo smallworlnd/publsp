@@ -88,6 +88,10 @@ class GetUtxosResponse(BaseModel, ErrorMessageMixin):
         ])
 
 
+class SignMessageResponse(BaseModel, ErrorMessageMixin):
+    signature: Optional[str] = Field(default=None)
+
+
 @dataclass
 class Preimage:
     hex: Optional[str] = field(default=None)

@@ -50,6 +50,7 @@ class AdEventData:
                 f'\n{"d ID": <{indent}}{ad_id}\n'
                 f'{"Value proposition": <{indent}}{value_prop}\n'
                 f'{"Nostr pubkey": <{indent}}{nostr_pubkey}\n'
+                f'{"Node signature of Nostr pubkey": <{indent}}{ad.lsp_sig}\n'
                 f'{"LSP pubkey": <{indent}}{ad.lsp_pubkey}\n'
                 f'{"LSP alias": <{indent}}{node_info.get("alias")}\n'
                 f'{"LSP total capacity (sats)": <{indent}}{node_info.get("total_capacity")}\n'

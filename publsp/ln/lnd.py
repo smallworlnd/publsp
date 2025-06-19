@@ -19,6 +19,7 @@ from publsp.ln.requesthandlers import (
     GetUtxosResponse,
     PaymentStatus,
     NodeStatusResponse,
+    SignMessageResponse,
     WalletReserveResponse,
 )
 
@@ -519,3 +520,36 @@ class LndBackend(NodeBase):
             output_index=None,
             error_message=msg
         )
+
+    async def sign_message(self, message: str) -> SignMessageResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/lightning/sign-message/
+        """
+        data = {
+            'msg': message,
+            'single_hash': False,
+        }
+        try:
+            r = await self.http_client.post('/v1/signmessage', json=data)
+        except Exception as e:
+            msg = 'failed to connect to ln backend to sign message'
+            logger.error(msg)
+            logger.error(f'sign message error: {e}')
+            return SignMessageResponse(error_message=msg)
+
+        data = r.json()
+        err = data.get('message')
+
+        if err and err == 'permission denied':
+            msg = 'need to bake a macaroon with message sign permissions'
+            logger.error(msg)
+            raise SystemExit(1)
+
+        sig = r.json().get('signature')
+
+        if not sig:
+            msg = 'signature empty'
+            logger.error(msg)
+            return SignMessageResponse(error_message=msg)
+
+        return SignMessageResponse(signature=sig)

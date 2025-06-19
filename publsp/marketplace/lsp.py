@@ -50,11 +50,7 @@ class AdHandler(MarketplaceAgent):
         self.ln_backend = ln_backend
         self.kind = PublspKind
         self.active_ads: AdEventData = None
-        self.options = {
-            key: value
-            for key, value in kwargs.items()
-            if key in list(Ad.model_fields.keys())
-        }
+        self.options = kwargs
 
     def generate_ad_id(self, pubkey: str) -> str:
         """
@@ -67,7 +63,7 @@ class AdHandler(MarketplaceAgent):
 
         return uuid_value
 
-    def build_ad(self, pubkey: str, **kwargs) -> Ad:
+    async def build_ad(self, pubkey: str, **kwargs) -> Ad:
         """
         build an ad given the cli arguments (**kwargs) and pubkey pulled from
         ln node backend
@@ -77,6 +73,13 @@ class AdHandler(MarketplaceAgent):
         """
         ad_id = self.generate_ad_id(pubkey=pubkey)
         lsp_ad = Ad(lsp_pubkey=pubkey, d=ad_id, **kwargs)
+        include_sig_in_ad = kwargs.get('include_node_sig')
+        if include_sig_in_ad:
+            nostr_pubkey = self.nostr_client.key_handler.keys.public_key().to_hex()
+            print("nostr pubkey: ", nostr_pubkey)
+            lsp_sig = await self.ln_backend.sign_message(message=nostr_pubkey)
+            print('nostr pubkey sig: ', lsp_sig.signature)
+            lsp_ad.lsp_sig = lsp_sig.signature
         return lsp_ad
 
     async def get_lsp_data(self) -> GetNodeSummaryResponse:
@@ -110,7 +113,7 @@ class AdHandler(MarketplaceAgent):
         distinct ad they want to make
         """
         node_stats = await self.get_lsp_data()
-        lsp_ad = self.build_ad(pubkey=node_stats.pubkey, **self.options)
+        lsp_ad = await self.build_ad(pubkey=node_stats.pubkey, **self.options)
         lsp_ad.status = status
         ad_tags = lsp_ad.model_dump_tags()
         # assemble custom content

@@ -178,6 +178,15 @@ from pydantic import ValidationError
     "automating publsp"
 )
 @click.option(
+    "--include-node-sig",
+    "include_node_sig",
+    is_flag=True,
+    default=LspSettings().include_node_sig,
+    help="sign your nostr pubkey with your ln node and include it in your ad "
+    "for clients to verify authenticity (may be helpful in a future where "
+    "spam and scams become prevalent)"
+)
+@click.option(
     "--lease-history-file-path",
     'lease_history_file_path',
     type=click.Path(exists=False, dir_okay=False),

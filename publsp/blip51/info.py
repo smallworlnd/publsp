@@ -12,6 +12,7 @@ from publsp.blip51.mixins import NostrTagsMixin
 
 class Ad(BaseModel, NostrTagsMixin):
     d: Optional[str] = Field(default=None)  # unique offer id
+    lsp_sig: Optional[str] = Field(default=None)  # node sig on nostr pubkey
     lsp_pubkey: Optional[str] = Field(default=None)
     status: Optional[str] = Field(default=AdSettings().status)
     min_required_channel_confirmations: int = AdSettings().min_required_channel_confirmations

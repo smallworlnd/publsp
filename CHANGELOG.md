@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.4.10] - 2025-06-18
+
+- added opt-in feature to include a node signature generated from the nostr pubkey in ads in order to help clients distinguish authentic ads from spam/fraud (which is not yet a problem as of this commit)
+
 ## [v0.4.9] - 2025-06-17
 
 - added lease record keeping in a json file; modified customer side filtering logic

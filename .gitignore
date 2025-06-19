@@ -7,6 +7,7 @@ nak
 log.txt
 TODO.md
 *.swp
+*lease-history.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
