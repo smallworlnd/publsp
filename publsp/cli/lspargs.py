@@ -77,7 +77,13 @@ from pydantic import ValidationError
     "supports_zero_channel_reserve",
     is_flag=True,
     default=AdSettings().supports_zero_channel_reserve,
-    help="allow zero reserve channels"
+    help="allow zero reserve channels (currently not implemented so has no effect"
+)
+@click.option(
+    "--no-private-channels",
+    is_flag=True,
+    help="use this option to refuse private channels, otherwise default "
+    "behavior is to accept private channels"
 )
 @click.option(
     "--max-channel-expiry",
@@ -219,6 +225,10 @@ def lspargs(**kwargs):
         raise click.UsageError(
             f"Missing required parameters (either via CLI or .env): {names}"
         )
+
+    # check for the no-private-channels flag
+    if kwargs.get('no_private_channels'):
+        settings.supports_private_channels = False
 
     # 3) Fire up the CLI
     try:

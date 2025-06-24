@@ -1,12 +1,18 @@
 # Changelog
 
+## [v0.4.11] - 2025--06-24
+
+- LSPs can choose to accept private channels or not
+- sometimes first channel open response is empty, added handling to skip and listen for the next response (be6ab0f)
+- updated README with SignMessage permissions with custom macaroon in order to include a node signature in ads (fd41581)
+
 ## [v0.4.10] - 2025-06-18
 
-- added opt-in feature to include a node signature generated from the nostr pubkey in ads in order to help clients distinguish authentic ads from spam/fraud (which is not yet a problem as of this commit)
+- pre-emptively added opt-in feature to include a node signature generated from the nostr pubkey in ads in order to help clients distinguish authentic ads from spam/fraud (which is not yet a problem as of this commit) (a7d01a7)
 
 ## [v0.4.9] - 2025-06-17
 
-- added lease record keeping in a json file; modified customer side filtering logic
+- added lease record keeping in a json file; modified customer side filtering logic (a58a884)
 
 ## [v0.4.8] - 2025-06-15
 

@@ -18,6 +18,7 @@ class Ad(BaseModel, NostrTagsMixin):
     min_required_channel_confirmations: int = AdSettings().min_required_channel_confirmations
     min_funding_confirms_within_blocks: int = AdSettings().min_funding_confirms_within_blocks
     supports_zero_channel_reserve: bool = AdSettings().supports_zero_channel_reserve
+    supports_private_channels: bool = AdSettings().supports_private_channels
     max_channel_expiry_blocks: int = AdSettings().max_channel_expiry_blocks
     min_initial_client_balance_sat: int = AdSettings().min_initial_client_balance_sat
     max_initial_client_balance_sat: int = AdSettings().max_initial_client_balance_sat

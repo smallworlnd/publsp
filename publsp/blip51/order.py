@@ -125,6 +125,11 @@ class Order(BaseModel, NostrTagsMixin):
                 is_valid=False,
                 error_code=OrderErrorCode.option_mismatch,
                 error_message="channel_expiry_blocks > max_channel_expiry_blocks")
+        if not self.announce_channel and not ad.supports_private_channels:
+            return ValidatedOrder(
+                is_valid=False,
+                error_code=OrderErrorCode.option_mismatch,
+                error_message="LSP does not support private channels")
 
         return ValidatedOrder(is_valid=True)
 
