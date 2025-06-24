@@ -466,10 +466,13 @@ class LndBackend(NodeBase):
             async for json_line in r.aiter_lines():
                 try:
                     line = json.loads(json_line)
+                    if not line:
+                        logger.error('channel open response line empty, maybe lag')
+                        continue
 
                     if line.get("error"):
                         msg = line.get('message')
-                        logger.debug(f'error field in open response: {msg}')
+                        logger.error(f'error field in open response: {msg}')
                         yield ChannelOpenResponse(
                             channel_state=ChannelState.UNKNOWN,
                             txid_bytes=None,
@@ -504,13 +507,8 @@ class LndBackend(NodeBase):
 
                 except Exception as e:
                     # if some error happens then listen for the next line
-                    logger.error(f'unhandled chan open error: {e}')
-                    yield ChannelOpenResponse(
-                        channel_state=ChannelState.UNKNOWN,
-                        txid_bytes=None,
-                        output_index=None,
-                        error_message="LSP could not open channel"
-                    )
+                    logger.error(f'unhandled chan open error, continuing to next iteration: {e}')
+                    continue
 
         msg = 'channel stream broke, LSP no longer following opening status'
         logger.error(msg)
