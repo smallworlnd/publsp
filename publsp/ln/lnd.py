@@ -42,10 +42,12 @@ class LndBackend(NodeBase):
         )
         self.headers = {'Grpc-Metadata-macaroon': self.macaroon}
         self.cert_path = cert_file_path
+        timeout = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=None)
         self.http_client = httpx.AsyncClient(
             base_url=self.rest_host,
             verify=self.cert_path,
-            headers=self.headers
+            headers=self.headers,
+            timeout=timeout,
         )
 
     async def check_node_connection(self) -> NodeStatusResponse:
@@ -103,6 +105,7 @@ class LndBackend(NodeBase):
 
         if r.is_error:
             error_message = r.text
+            logger.error(f'error in getinfo response: {r.json()}')
             return GetNodeIdResponse(
                 pubkey='',
                 alias='',
