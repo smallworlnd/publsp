@@ -8,6 +8,7 @@ from typing import Any, AsyncIterator, Dict
 from publsp.blip51.order import Order
 from publsp.ln.base import NodeBase, Utxo, UtxoOutpoint
 from publsp.ln.requesthandlers import (
+    CancelInvoiceResponse,
     ChannelState,
     ChannelOpenResponse,
     ConnectPeerResponse,
@@ -41,9 +42,6 @@ class LndBackend(NodeBase):
         )
         self.headers = {'Grpc-Metadata-macaroon': self.macaroon}
         self.cert_path = cert_file_path
-        import ssl
-
-        ssl_ctx = ssl.create_default_context(cafile=self.cert_path)
         self.http_client = httpx.AsyncClient(
             base_url=self.rest_host,
             verify=self.cert_path,
@@ -330,7 +328,8 @@ class LndBackend(NodeBase):
                 try:
                     line = json.loads(json_line)
 
-                    if line.get("error"):
+                    if line and line.get("error"):
+                        logger.error(f'error line: {line}')
                         message = (
                             line["error"]["message"]
                             if "message" in line["error"]
@@ -344,7 +343,7 @@ class LndBackend(NodeBase):
 
                     payment = line.get("result")
 
-                    if payment.get("state"):
+                    if payment and payment.get("state"):
                         yield PaymentStatus(
                             result=HodlInvoiceState.from_lnd(payment["state"])
                         )
@@ -394,6 +393,36 @@ class LndBackend(NodeBase):
             result=HodlInvoiceState.UNKNOWN,
             error_message=error_message
         )
+
+    async def cancel_hodl_invoice(self, base64_hash: str) -> CancelInvoiceResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/invoices/cancel-invoice/
+        """
+        data = {'payment_hash': base64_hash}
+        error_msg = 'failed to cancel hodl invoice, will need to wait for timeout to get refund'
+        try:
+            r = await self.http_client.post('/v2/invoices/cancel', json=data)
+        except Exception as e:
+            logger.error(f"failed to cancel invoice: {e}")
+            return CancelInvoiceResponse(
+                cancelled=False,
+                error_message=error_msg,
+            )
+
+        if r.is_error:
+            logger.error(f'error in cancelling invoice: {r.json()}')
+            return CancelInvoiceResponse(
+                cancelled=False,
+                error_message=error_msg,
+            )
+
+        # empty response means successfully cancelled
+        if not r.json():
+            logger.info(f'refunded invoice with hash {base64_hash}')
+            return CancelInvoiceResponse(cancelled=True)
+
+        # any other unhandled response check should error out
+        return CancelInvoiceResponse(cancelled=False, error_message=error_msg)
 
     async def connect_peer(
             self,
@@ -470,19 +499,18 @@ class LndBackend(NodeBase):
                         logger.error('channel open response line empty, maybe lag')
                         continue
 
-                    if line.get("error"):
-                        msg = line.get('message')
-                        logger.error(f'error field in open response: {msg}')
+                    if line and line.get("error"):
+                        logger.error(f'error line: {line}')
                         yield ChannelOpenResponse(
                             channel_state=ChannelState.UNKNOWN,
                             txid_bytes=None,
                             output_index=None,
-                            error_message=msg
+                            error_message='LSP could not open channel, please try again later'
                         )
 
                     chan_state = line.get('result')
 
-                    if chan_state.get('chan_pending'):
+                    if chan_state and chan_state.get('chan_pending'):
                         pending_state = chan_state\
                             .get('chan_pending')
                         txid_bytes = pending_state.get('txid')
@@ -493,7 +521,7 @@ class LndBackend(NodeBase):
                             output_index=output_index
                         )
 
-                    if chan_state.get('chan_open'):
+                    if chan_state and chan_state.get('chan_open'):
                         open_state = chan_state\
                             .get('chan_open')\
                             .get('channel_point')
@@ -510,7 +538,7 @@ class LndBackend(NodeBase):
                     logger.error(f'unhandled chan open error, continuing to next iteration: {e}')
                     continue
 
-        msg = 'channel stream broke, LSP no longer following opening status'
+        msg = 'LSP could not open the channel, refund being issued'
         logger.error(msg)
         yield ChannelOpenResponse(
             channel_state=ChannelState.UNKNOWN,

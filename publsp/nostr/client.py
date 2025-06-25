@@ -52,3 +52,29 @@ class NostrClient(Client):
 
     def get_public_key_hex(self) -> str:
         return self.key_handler.keys.public_key().to_hex()
+
+    async def reload_relays(self):
+        """
+        Add new relays specified in the .env file to the nostr client but don't
+        disconnect delisted relays until publsp restart in order to avoid mixed
+        status ads on different relays
+        """
+        try:
+            env = EnvironmentSettings().environment
+            current_relays = list(await self.relays())
+
+            added_relays = [
+                relay
+                for relay in Relays().get_relays(env=env)
+                if relay not in current_relays
+            ]
+
+            if added_relays:
+                logger.info('Hot reloading relays...')
+                for relay in added_relays:
+                    await self.add_relay(relay)
+                    added_relay = await self.relay(relay)
+                    added_relay.connect()
+
+        except Exception as e:
+            logger.error(f"Error during hot nostr settings reload: {e}")

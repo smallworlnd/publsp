@@ -316,12 +316,15 @@ class OrderResponseHandler:
     def _format_chan_open_response(
             self,
             chan_open_resp: ChannelOpenResponse) -> str:
-        return (
+        resp = (
             '\n\nReceived channel open notification:\n'
             f'Channel status: {chan_open_resp.channel_state.value}\n'
             f'Transaction ID: {chan_open_resp.txid_hex}\n'
-            f'Output index: {chan_open_resp.output_index}\n\n'
+            f'Output index: {chan_open_resp.output_index}\n'
         )
+        if chan_open_resp.error_message:
+            resp += f'Error: {chan_open_resp.error_message}\n'
+        return resp + '\n'
 
     def handle_chan_open_response(
             self,

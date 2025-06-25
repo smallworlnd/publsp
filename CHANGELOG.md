@@ -1,8 +1,12 @@
 # Changelog
 
-## [v0.4.11] - 2025--06-24
+## [v0.4.12] - 2025-06-25
 
-- LSPs can choose to accept private channels or not
+- fixed error handling on failed channel open, invoice now gets refunded immediately on error; refactored LSP cli
+
+## [v0.4.11] - 2025-06-24
+
+- LSPs can choose to accept private channels or not; no errors thrown on async streams if line is empty (14191cb)
 - sometimes first channel open response is empty, added handling to skip and listen for the next response (be6ab0f)
 - updated README with SignMessage permissions with custom macaroon in order to include a node signature in ads (fd41581)
 

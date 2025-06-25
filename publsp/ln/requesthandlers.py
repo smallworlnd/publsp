@@ -49,6 +49,10 @@ class HodlInvoiceResponse(BaseModel, ErrorMessageMixin):
     expiry: Optional[int] = None
 
 
+class CancelInvoiceResponse(BaseModel, ErrorMessageMixin, NostrTagsMixin):
+    cancelled: bool
+
+
 class GetNodeIdResponse(BaseModel, ErrorMessageMixin):
     pubkey: str
     alias: str

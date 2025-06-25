@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.4.11'
+VERSION = '0.4.12'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -235,6 +235,24 @@ class AdSettings(PublspSettings):
             raise ValueError(
                 'min_funding_confirms_within_blocks must be 2 (the fastest) '
                 'or greater, according to the API')
+
+    @model_validator(mode='after')
+    def validate_channel_balance_limits(self):
+        if self.min_channel_balance_sat > self.max_channel_balance_sat:
+            raise ValueError(f'min channel balance has to be smaller than max')
+        return self
+
+    @model_validator(mode='after')
+    def validate_client_balance_limits(self):
+        if self.min_initial_client_balance_sat > self.max_initial_client_balance_sat:
+            raise ValueError(f'min initial client balance has to be smaller than max')
+        return self
+
+    @model_validator(mode='after')
+    def validate_lsp_balance_limits(self):
+        if self.min_initial_lsp_balance_sat > self.max_initial_lsp_balance_sat:
+            raise ValueError(f'min initial client balance has to be smaller than max')
+        return self
 
     @field_validator(
         'min_funding_confirms_within_blocks',

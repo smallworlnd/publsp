@@ -31,7 +31,13 @@ from publsp.marketplace.base import AdEventData, MarketplaceAgent
 from publsp.nostr.client import NostrClient
 from publsp.nostr.kinds import PublspKind
 from publsp.nostr.nip17 import RumorHandler
-from publsp.settings import AdStatus, LnImplementation, LspSettings
+from publsp.settings import (
+    AdSettings,
+    AdStatus,
+    CustomAdSettings,
+    LnImplementation,
+    LspSettings,
+)
 
 # init_logger(LogLevel.INFO)
 logger = logging.getLogger(name=__name__)
@@ -51,6 +57,8 @@ class AdHandler(MarketplaceAgent):
         self.kind = PublspKind
         self.active_ads: AdEventData = None
         self.options = kwargs
+        # Store kwargs for potential reload
+        self._init_kwargs = kwargs
 
     def generate_ad_id(self, pubkey: str) -> str:
         """
@@ -178,6 +186,48 @@ class AdHandler(MarketplaceAgent):
 
         return
 
+    async def reload(self):
+        """Reload the ad_handler with new AdSettings from .env file."""
+        try:
+            logger.info("Hot reloading ad changes...")
+
+            new_ad_settings = AdSettings()
+            new_value_prop = CustomAdSettings()
+
+            # Check if different from current
+            current_options = self.options
+            new_options = new_ad_settings.model_dump() | new_value_prop.model_dump()
+
+            if current_options == new_options:
+                logger.info("No AdSettings changes detected")
+                return
+
+            logger.info("AdSettings changed, reloading...")
+
+            # Create new AdHandler with updated AdSettings
+            updated_kwargs = self._init_kwargs.copy()
+            updated_kwargs.update(new_options)
+
+            # update the ad_handler field and republish the ad
+            new_ad_handler = AdHandler(
+                nostr_client=self.nostr_client,
+                ln_backend=self.ln_backend,
+                **updated_kwargs,
+            )
+            await new_ad_handler.publish_ad(content=new_options['value_prop'])
+
+            # check to make sure we published the new events and so we can
+            # modify the live objects
+            if hasattr(new_ad_handler.active_ads, 'ads') and new_ad_handler.active_ads.ads:
+                # update the order handler with the latest ad handler
+                return new_ad_handler
+            else:
+                logger.error('error in hot loading new fields, keeping previous')
+                logger.error(f'settings that prevented hot loading: {new_options}')
+
+        except Exception as e:
+            logger.error(f"Error during ad hot reload: {e}")
+
 
 class OrderHandler:
     def __init__(
@@ -298,13 +348,13 @@ class OrderHandler:
         """
         async for update in self.ln_backend.open_channel(order=order):
             state = update.channel_state
-            logger.info(f'"Channel state is now {state}')
             await self.nostr_client.send_private_msg(
                 client_pubkey,
                 f"Channel status update",
                 rumor_extra_tags=update.model_dump_tags(),
             )
             if state == ChannelState.OPEN:
+                logger.info(f'Channel state is now {state}')
                 # finally release the invoice preimage
                 await self.ln_backend.settle_hodl_invoice(preimage.base64)
                 # send a message saying payment settled
@@ -320,6 +370,14 @@ class OrderHandler:
                     preimage=preimage,
                     channel_point=channel_point
                 )
+                return
+
+            if state == ChannelState.UNKNOWN:
+                # cancel the invoice to issue refund
+                logger.info(f'Channel could not be opened, issuing refund')
+                refund = await self.ln_backend.cancel_hodl_invoice(preimage.base64_hash)
+                if refund.error_message:
+                    logger.error(f'got error when cancelling invoice: {refund}')
                 return
 
     def _read_lease_output_file(self):
