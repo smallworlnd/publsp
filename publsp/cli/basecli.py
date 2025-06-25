@@ -1,4 +1,5 @@
 import asyncio
+import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Coroutine
@@ -52,9 +53,9 @@ class HotReloader:
         try:
             last_modified = file_path.stat().st_mtime if file_path.exists() else 0
 
-            while not self._shutdown_event.is_set():
+            while not self.shutdown_event.is_set():
                 try:
-                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=2.0)
+                    await asyncio.wait_for(self.shutdown_event.wait(), timeout=2.0)
                     break  # Shutdown was triggered
                 except asyncio.TimeoutError:
                     pass  # Continue checking
