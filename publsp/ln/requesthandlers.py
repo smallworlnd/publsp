@@ -16,6 +16,10 @@ class NodeStatusResponse(BaseModel, ErrorMessageMixin):
     synced_to_graph: Optional[bool] = None
 
 
+class MacaroonPermissionsResponse(BaseModel, ErrorMessageMixin):
+    valid: bool
+
+
 class ConnectPeerResponse(BaseModel, ErrorMessageMixin):
     connected: bool
 

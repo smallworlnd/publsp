@@ -1,9 +1,10 @@
+import base64
 import codecs
 import httpx
 import json
 import logging
 import statistics
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, List
 
 from publsp.blip51.order import Order
 from publsp.ln.base import NodeBase, Utxo, UtxoOutpoint
@@ -19,10 +20,12 @@ from publsp.ln.requesthandlers import (
     GetNodeIdResponse,
     GetUtxosResponse,
     PaymentStatus,
+    MacaroonPermissionsResponse,
     NodeStatusResponse,
     SignMessageResponse,
     WalletReserveResponse,
 )
+from publsp.settings import LndPermissions
 
 logger = logging.getLogger(name=__name__)
 GetUtxosResponse.model_rebuild()
@@ -50,11 +53,37 @@ class LndBackend(NodeBase):
             timeout=timeout,
         )
 
+    async def verify_macaroon_permissions(self, methods: List[str] = LndPermissions().methods):
+        """
+        https://lightning.engineering/api-docs/api/lnd/lightning/check-macaroon-permissions/
+
+        /lnrpc.Lightning/CheckMacaroonPermissions
+        """
+        macaroon_raw = bytes.fromhex(self.macaroon.decode())
+        macaroon_base64 = base64.urlsafe_b64encode(macaroon_raw).decode()
+        missing_perms = []
+
+        try:
+            for method in methods:
+                data = {'macaroon': macaroon_base64, 'fullMethod': method}
+                r = await self.http_client.post('/v1/macaroon/checkpermissions', json=data)
+                resp = r.json()
+                perm_validated = resp.get('valid')
+                if not perm_validated:
+                    missing_perms.append(method)
+        except Exception as e:
+            raise Exception(f"failed to validate macaroon permissions, stopping: {e}")
+
+        if missing_perms:
+            raise Exception(f'missing permissions in macaroon: {missing_perms}')
+
     async def check_node_connection(self) -> NodeStatusResponse:
         """
         try:
         https://lightning.engineering/api-docs/api/lnd/lightning/get-info/
         else throw a connection error
+
+        /lnrpc.Lightning/GetInfo
         """
         try:
             r = await self.http_client.get('/v1/getinfo')
@@ -98,6 +127,10 @@ class LndBackend(NodeBase):
             logger.error(f"Could not close rest client: {e}")
 
     async def get_node_id(self) -> GetNodeIdResponse:
+        """
+        /walletrpc.WalletKit/RequiredReserve
+        /lnrpc.Lightning/GetInfo
+        """
         try:
             r = await self.http_client.get('/v1/getinfo')
         except Exception as e:
@@ -126,6 +159,8 @@ class LndBackend(NodeBase):
     async def get_reserve_amount(self) -> WalletReserveResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/wallet-kit/required-reserve/
+
+        /walletrpc.WalletKit/RequiredReserve
         """
         try:
             r = await self.http_client.get('/v2/wallet/reserve')
@@ -144,6 +179,8 @@ class LndBackend(NodeBase):
     async def get_best_block(self) -> GetBestBlockResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/chain-kit/get-best-block/
+
+        /chainrpc.ChainKit/GetBestBlock
         """
         try:
             r = await self.http_client.get('/v2/chainkit/bestblock')
@@ -190,6 +227,11 @@ class LndBackend(NodeBase):
         }
 
     async def get_node_properties(self, pubkey: str) -> GetNodePropertyResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/lightning/get-node-info/
+
+        /lnrpc.Lightning/GetNodeInfo
+        """
         try:
             params = {'include_channels': True}
             r = await self.http_client.get(f'/v1/graph/node/{pubkey}', params=params)
@@ -226,6 +268,8 @@ class LndBackend(NodeBase):
             unconfirmed_only: bool = False) -> GetUtxosResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/wallet-kit/list-unspent/
+
+        /walletrpc.WalletKit/ListUnspent
         """
         data = {
             'min_confs': min_confs,
@@ -242,7 +286,7 @@ class LndBackend(NodeBase):
             return GetUtxosResponse(error_message=msg)
 
         data = r.json()
-        utxos_json = data["utxos"]
+        utxos_json = data.get("utxos")
 
         if not utxos_json:
             msg = 'utxo set empty'
@@ -276,6 +320,8 @@ class LndBackend(NodeBase):
             expiry: int = 1200) -> HodlInvoiceResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/invoices/add-hold-invoice/
+
+        /invoicesrpc.Invoices/AddHoldInvoice
         """
         data = {'hash': base64_hash, 'value': amt, 'expiry': expiry}
         try:
@@ -324,6 +370,8 @@ class LndBackend(NodeBase):
         https://lightning.engineering/api-docs/api/lnd/invoices/subscribe-single-invoice/
 
         listen for state changes in an invoice
+
+        /invoicesrpc.Invoices/SubscribeSingleInvoice
         """
         endpoint = f'/v2/invoices/subscribe/{base64_hash}'
         async with self.http_client.stream("GET", endpoint, timeout=None) as r:
@@ -365,7 +413,9 @@ class LndBackend(NodeBase):
 
     async def settle_hodl_invoice(self, base64_preimage: str) -> PaymentStatus:
         """
-        https://lightning.engineering/api-docs/api/lnd/lightning/connect-peer/
+        https://lightning.engineering/api-docs/api/lnd/invoices/settle-invoice/
+
+        /invoicesrpc.Invoices/SettleInvoice
         """
         data = {'preimage': base64_preimage}
         try:
@@ -400,6 +450,8 @@ class LndBackend(NodeBase):
     async def cancel_hodl_invoice(self, base64_hash: str) -> CancelInvoiceResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/invoices/cancel-invoice/
+
+        /invoicesrpc.Invoices/CancelInvoice
         """
         data = {'payment_hash': base64_hash}
         error_msg = 'failed to cancel hodl invoice, will need to wait for timeout to get refund'
@@ -434,6 +486,8 @@ class LndBackend(NodeBase):
             retry_connect: bool = True) -> ConnectPeerResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/lightning/connect-peer/
+
+        /lnrpc.Lightning/ConnectPeer
         """
         uri_components = pubkey_uri.split('@')
         data = {
@@ -483,6 +537,8 @@ class LndBackend(NodeBase):
         """
         * requires connection to node via `connect_peer` first
         https://lightning.engineering/api-docs/api/lnd/lightning/open-channel/
+
+        /lnrpc.Lightning/OpenChannel
         """
         data = {
           'node_pubkey': order.pubkey_base64,
@@ -557,6 +613,8 @@ class LndBackend(NodeBase):
     async def sign_message(self, message: str) -> SignMessageResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/lightning/sign-message/
+
+        /lnrpc.Lightning/SignMessage
         """
         data = {
             'msg': message,

@@ -250,7 +250,6 @@ class OrderHandler:
         ad = self.ad_handler.active_ads.ads[order.d]
         # validate the order request first
         checked_order = order.validate_order(ad=ad)
-        print('checking if order is valid')
         if not checked_order.is_valid:
             logger.error("order has an invalid option, cancelling")
             return OrderErrorResponse(
@@ -261,7 +260,6 @@ class OrderHandler:
         # verify that we have enough funds to fill the order
         # need sum of confirmed utxos, less reserve amount, to be greater than
         # order total capacity
-        print('checking if utxo set is enough')
         utxos = await self.ln_backend.get_utxo_set()
         if utxos.error_message:
             logger.error("could not fetch utxo set to fulfill order")
@@ -279,11 +277,9 @@ class OrderHandler:
 
         # try connecting to pubkey uri to make sure we can open channel
         # before taking any payments
-        print('checking if connected to peer')
         peer_connection = await self.ln_backend.connect_peer(
             pubkey_uri=order.target_pubkey_uri
         )
-        print('peer connection resp: ', peer_connection)
         if not peer_connection.connected:
             logger.error("failed to connect to peer, cancelling order")
             logger.error(f'reason: {peer_connection.error_message}')

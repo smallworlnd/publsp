@@ -1,9 +1,14 @@
 # Changelog
 
+## [v0.4.15] - 2025-06-26
+
+- added startup method to verify the provided lnd macaroon minimally has the right permissions
+
 ## [v0.4.14] - 2025-06-26
 
-- fixed peer connect check bug in order validation by LSP
-- added longer timeouts to lnd backend calls
+- fixed peer connect check bug in order validation by LSP; added longer timeouts to lnd backend calls (cc4a08d)
+- added longer timeouts to lnd backend calls (af528f1)
+- refactoring lsp cli some more (91a2116)
 
 ## [v0.4.13] - 2025-06-25
 

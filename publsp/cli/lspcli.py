@@ -90,7 +90,9 @@ class LspCLI(BaseCLI):
     # ------------------------------------------
 
     async def startup(self) -> None:
-        """Connect relays and start background listeners."""
+        """Check ln backend, connect relays and start background listeners."""
+        await self.ln_backend.check_node_connection()
+        await self.ln_backend.verify_macaroon_permissions()
         await self.nostr_client.connect_relays()
         self.nip17_listener.start()
         self.order_handler.start()
@@ -206,10 +208,14 @@ class LspCLI(BaseCLI):
     # ------------------------------------------
 
     async def run(self) -> None:
-        await self.startup()
-
         # Create shutdown event after event loop is running
         self.shutdown_event = asyncio.Event()
+
+        try:
+            await self.startup()
+        except Exception as e:
+            logger.error(f'failed to startup: {e}')
+            await self.shutdown_event.wait()
 
         try:
             if self.daemon_mode:

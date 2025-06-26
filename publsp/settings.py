@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.4.14'
+VERSION = '0.4.15'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -166,6 +166,28 @@ class EnvironmentSettings(PublspSettings):
 
         # 3) Reject any other types
         raise ValueError(f"Environment must be a str or Environment enum, got {value!r}")
+
+
+class LndPermissions(BaseSettings):
+    """
+    methods have overlap in permissions, but best to maintain an explicit list
+    of URIs for clarity
+    """
+    methods: List[str] = [
+        '/chainrpc.ChainKit/GetBestBlock',
+        '/invoicesrpc.Invoices/AddHoldInvoice',
+        '/invoicesrpc.Invoices/CancelInvoice',
+        '/invoicesrpc.Invoices/SettleInvoice',
+        '/invoicesrpc.Invoices/SubscribeSingleInvoice',
+        '/lnrpc.Lightning/CheckMacaroonPermissions',
+        '/lnrpc.Lightning/ConnectPeer',
+        '/lnrpc.Lightning/GetInfo',
+        '/lnrpc.Lightning/GetNodeInfo',
+        '/lnrpc.Lightning/OpenChannel',
+        '/lnrpc.Lightning/SignMessage',
+        '/walletrpc.WalletKit/ListUnspent',
+        '/walletrpc.WalletKit/RequiredReserve',
+    ]
 
 
 class LnBackendSettings(BaseSettings):

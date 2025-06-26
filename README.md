@@ -98,21 +98,24 @@ publsp lsp \
   --cert-file-path /path/to/tls.cert
 ```
 
-Or you can bake a macaroon with only the required permissions for tighter control:
+Or you can bake a macaroon with only the required permissions for tighter and explicit control:
 
 ```bash
+# several URIs have overlapping entities & actions but the full list is there for completion
 lncli bakemacaroon --save_to /path/to/lnd/data/chain/bitcoin/mainnet/publsp.macaroon \
-  info:read onchain:read offchain:read invoices:read \
-  uri:/lnrpc.Lightning/ConnectPeer \
-  uri:/lnrpc.Lightning/OpenChannel \
-  uri:/lnrpc.Lightning/OpenChannelSync \
-  uri:/lnrpc.Lightning/PendingChannels \
-  uri:/lnrpc.Lightning/SendCustomMessage \
-  uri:/lnrpc.Lightning/SignMessage \
-  uri:/invoicesrpc.Invoices/AddHoldInvoice \
-  uri:/invoicesrpc.Invoices/CancelInvoice \
-  uri:/invoicesrpc.Invoices/SubscribeSingleInvoice \
-  uri:/invoicesrpc.Invoices/SettleInvoice
+	uri:/chainrpc.ChainKit/GetBestBlock \
+	uri:/invoicesrpc.Invoices/AddHoldInvoice \
+	uri:/invoicesrpc.Invoices/CancelInvoice \
+	uri:/invoicesrpc.Invoices/SettleInvoice \
+	uri:/invoicesrpc.Invoices/SubscribeSingleInvoice \
+	uri:/lnrpc.Lightning/CheckMacaroonPermissions \
+	uri:/lnrpc.Lightning/ConnectPeer \
+	uri:/lnrpc.Lightning/GetInfo \
+	uri:/lnrpc.Lightning/GetNodeInfo \
+	uri:/lnrpc.Lightning/OpenChannel \
+	uri:/lnrpc.Lightning/SignMessage \
+	uri:/walletrpc.WalletKit/ListUnspent \
+	uri:/walletrpc.WalletKit/RequiredReserve
 
 # use the freshly baked macaroon
 publsp lsp \
