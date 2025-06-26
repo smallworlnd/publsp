@@ -1,8 +1,17 @@
 # Changelog
 
+## [v0.4.14] - 2025-06-26
+
+- fixed peer connect check bug in order validation by LSP
+- added longer timeouts to lnd backend calls
+
+## [v0.4.13] - 2025-06-25
+
+- fixed bug introduced from refactoring (abfac52)
+
 ## [v0.4.12] - 2025-06-25
 
-- fixed error handling on failed channel open, invoice now gets refunded immediately on error; refactored LSP cli
+- fixed error handling on failed channel open, invoice now gets refunded immediately on error; refactored LSP cli (0dd0ce6)
 
 ## [v0.4.11] - 2025-06-24
 

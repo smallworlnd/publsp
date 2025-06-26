@@ -430,14 +430,18 @@ class LndBackend(NodeBase):
     async def connect_peer(
             self,
             pubkey_uri: str,
-            timeout: int = 15) -> ConnectPeerResponse:
+            timeout: int = 15,
+            retry_connect: bool = True) -> ConnectPeerResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/lightning/connect-peer/
+        """
         uri_components = pubkey_uri.split('@')
         data = {
             'addr': {
                 'pubkey': uri_components[0],
                 'host': uri_components[1],
             },
-            'perm': False,
+            'perm': retry_connect,
             'timeout': timeout
         }
         try:

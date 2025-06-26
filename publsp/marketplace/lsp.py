@@ -280,8 +280,9 @@ class OrderHandler:
         peer_connection = await self.ln_backend.connect_peer(
             pubkey_uri=order.target_pubkey_uri
         )
-        if not peer_connection:
+        if not peer_connection.connected:
             logger.error("failed to connect to peer, cancelling order")
+            logger.error(f'reason: {peer_connection.error_message}')
             return OrderErrorResponse(
                 code=OrderErrorCode.connection_error,
                 error_message=f'Could not connect to {order.pubkey_uri}, '
