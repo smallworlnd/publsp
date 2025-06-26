@@ -103,6 +103,7 @@ Or you can bake a macaroon with only the required permissions for tighter contro
 ```bash
 lncli bakemacaroon --save_to /path/to/lnd/data/chain/bitcoin/mainnet/publsp.macaroon \
   info:read onchain:read offchain:read invoices:read \
+  uri:/lnrpc.Lightning/ConnectPeer \
   uri:/lnrpc.Lightning/OpenChannel \
   uri:/lnrpc.Lightning/OpenChannelSync \
   uri:/lnrpc.Lightning/PendingChannels \
@@ -196,6 +197,14 @@ VALUE_PROP="your value prop here"
 ```
 
 **This approach is strongly recommended if you intend to frequently update ads** to avoid potentially breaking active order flows that could otherwise happen if restarting `publsp` to update settings.
+
+If you're using docker, you can build the image with a preconfigured `.env` file and either modify the file within a running container or modify the `.env` on the host and copy it over to the container, for example:
+
+```bash
+# make some modifications to .env on the host, then
+# assuming the running container is called 'publsp'
+docker cp .env publsp:/app/.env
+```
 
 ### Customer Mode
 
