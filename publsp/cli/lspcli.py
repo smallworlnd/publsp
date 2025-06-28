@@ -91,8 +91,14 @@ class LspCLI(BaseCLI):
 
     async def startup(self) -> None:
         """Check ln backend, connect relays and start background listeners."""
-        await self.ln_backend.check_node_connection()
-        await self.ln_backend.verify_macaroon_permissions()
+        conn_check = await self.ln_backend.check_node_connection()
+        if not conn_check.healthy:
+            raise ConnectionError(f'could not connect to ln backend: {conn_check.error_message}')
+        perms_check = await self.ln_backend.verify_macaroon_permissions()
+        if perms_check.error_message:
+            raise Exception(f'could not verify permissions: {perms_check.error_message}')
+        if perms_check.invalid_perms:
+            raise ValueError(f'missing the following URI permissions in macaroon: {perms_check.invalid_perms}')
         await self.nostr_client.connect_relays()
         self.nip17_listener.start()
         self.order_handler.start()
@@ -211,11 +217,7 @@ class LspCLI(BaseCLI):
         # Create shutdown event after event loop is running
         self.shutdown_event = asyncio.Event()
 
-        try:
-            await self.startup()
-        except Exception as e:
-            logger.error(f'failed to startup: {e}')
-            await self.shutdown_event.wait()
+        await self.startup()
 
         try:
             if self.daemon_mode:

@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.4.16] - 2025-06-27
+
+- added explicit macaroon permissions check response object for easier verification of permissions at startup
+
 ## [v0.4.15] - 2025-06-26
 
 - added startup method to verify the provided lnd macaroon minimally has the right permissions

@@ -53,7 +53,9 @@ class LndBackend(NodeBase):
             timeout=timeout,
         )
 
-    async def verify_macaroon_permissions(self, methods: List[str] = LndPermissions().methods):
+    async def verify_macaroon_permissions(
+            self,
+            methods: List[str] = LndPermissions().methods) -> MacaroonPermissionsResponse:
         """
         https://lightning.engineering/api-docs/api/lnd/lightning/check-macaroon-permissions/
 
@@ -61,7 +63,8 @@ class LndBackend(NodeBase):
         """
         macaroon_raw = bytes.fromhex(self.macaroon.decode())
         macaroon_base64 = base64.urlsafe_b64encode(macaroon_raw).decode()
-        missing_perms = []
+        invalid_perms = []
+        valid_perms = []
 
         try:
             for method in methods:
@@ -69,13 +72,19 @@ class LndBackend(NodeBase):
                 r = await self.http_client.post('/v1/macaroon/checkpermissions', json=data)
                 resp = r.json()
                 perm_validated = resp.get('valid')
-                if not perm_validated:
-                    missing_perms.append(method)
+                if perm_validated:
+                    valid_perms.append(method)
+                else:
+                    invalid_perms.append(method)
         except Exception as e:
-            raise Exception(f"failed to validate macaroon permissions, stopping: {e}")
+            msg = f"failed to validate macaroon permissions, stopping: {e}"
+            logger.error(msg)
+            return MacaroonPermissionsResponse(error_message=msg)
 
-        if missing_perms:
-            raise Exception(f'missing permissions in macaroon: {missing_perms}')
+        return MacaroonPermissionsResponse(
+            valid_perms=valid_perms,
+            invalid_perms=invalid_perms
+        )
 
     async def check_node_connection(self) -> NodeStatusResponse:
         """

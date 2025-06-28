@@ -17,7 +17,8 @@ class NodeStatusResponse(BaseModel, ErrorMessageMixin):
 
 
 class MacaroonPermissionsResponse(BaseModel, ErrorMessageMixin):
-    valid: bool
+    valid_perms: Optional[List[str]] = None
+    invalid_perms: Optional[List[str]] = None
 
 
 class ConnectPeerResponse(BaseModel, ErrorMessageMixin):

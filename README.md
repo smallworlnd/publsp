@@ -70,6 +70,8 @@ pip install publsp
 git clone https://github.com/smallworlnd/publsp.git
 cd publsp
 docker build -t publsp .
+# or if rebuilding after updating the repo:
+docker build --no-cache -t publsp .
 ```
 
 ## Quickstart
@@ -98,10 +100,9 @@ publsp lsp \
   --cert-file-path /path/to/tls.cert
 ```
 
-Or you can bake a macaroon with only the required permissions for tighter and explicit control:
+Or you can bake a macaroon with only the minimum required URI permissions for tighter control.
 
 ```bash
-# several URIs have overlapping entities & actions but the full list is there for completion
 lncli bakemacaroon --save_to /path/to/lnd/data/chain/bitcoin/mainnet/publsp.macaroon \
 	uri:/chainrpc.ChainKit/GetBestBlock \
 	uri:/invoicesrpc.Invoices/AddHoldInvoice \
