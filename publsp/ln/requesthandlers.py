@@ -80,6 +80,17 @@ class WalletReserveResponse(BaseModel, ErrorMessageMixin):
     required_reserve: Optional[int] = Field(default=None)
 
 
+class EstimateChainFeeResponse(BaseModel, ErrorMessageMixin):
+    sat_per_kw: Optional[int] = Field(default=None)
+    min_relay_fee_sat_per_kw: Optional[int] = Field(default=None)
+
+    @property
+    def sat_per_vb(self) -> int:
+        if self.sat_per_kw:
+            return self.sat_per_kw / 1000 / 4
+        return 0
+
+
 class GetBestBlockResponse(BaseModel, ErrorMessageMixin):
     block_hash: Optional[str] = Field(default=None)
     block_height: Optional[int] = Field(default=None)
@@ -95,6 +106,10 @@ class GetUtxosResponse(BaseModel, ErrorMessageMixin):
             for utxo in self.utxos
             if utxo.confirmations >= 3
         ])
+
+    @property
+    def num_utxos(self) -> int:
+        return len(self.utxos)
 
 
 class SignMessageResponse(BaseModel, ErrorMessageMixin):

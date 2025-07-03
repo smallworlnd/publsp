@@ -28,6 +28,16 @@ class Utxo(BaseModel):
     outpoint: Optional[UtxoOutpoint] = Field(default=None)
     confirmations: Optional[int] = Field(default=None)
 
+    @property
+    def spend_cost_vb(self) -> float:
+        if self.address_type == 'WITNESS_PUBKEY_HASH':
+            return 68
+        if self.address_type == 'NESTED_PUBKEY_HASH':
+            return 68
+        if self.address_type == 'TAPROOT_PUBKEY':
+            return 57.5
+        return 0
+
 
 class NodeBase(ABC):
     @abstractmethod

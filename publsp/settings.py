@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.4.16'
+VERSION = '0.4.17'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -183,8 +183,10 @@ class LndPermissions(BaseSettings):
         'uri:/lnrpc.Lightning/ConnectPeer',
         'uri:/lnrpc.Lightning/GetInfo',
         'uri:/lnrpc.Lightning/GetNodeInfo',
+        'uri:/lnrpc.Lightning/ListPermissions',
         'uri:/lnrpc.Lightning/OpenChannel',
         'uri:/lnrpc.Lightning/SignMessage',
+        'uri:/walletrpc.WalletKit/EstimateFee',
         'uri:/walletrpc.WalletKit/ListUnspent',
         'uri:/walletrpc.WalletKit/RequiredReserve',
     ]
@@ -195,6 +197,16 @@ class LnBackendSettings(BaseSettings):
     rest_host: Optional[HttpUrl] = Field(default=None)
     permissions_file_path: Optional[FilePath] = Field(default=None)
     cert_file_path: Optional[FilePath] = Field(default=None)
+    health_check_time: Optional[int] = Field(default=300)  # in seconds
+
+    @field_validator('health_check_time', mode='after')
+    def validate_health_check_time(cls, v: Optional[int]) -> Optional[int]:
+        min_time_check = 30
+        if not v:
+            return v
+        if v < min_time_check:
+            raise ValueError(f'you should set a value for HEALTH_CHECK_TIME greater than {min_time_check} seconds, got {v}')
+        return v
 
     @field_validator("node", mode="after")
     def validate_supported_impl(cls, v: Optional[LnImplementation]) -> Optional[LnImplementation]:
@@ -306,7 +318,20 @@ class AdSettings(PublspSettings):
 
 
 class CustomAdSettings(PublspSettings):
-    value_prop: str = Field(default="No frills liquidity offer over Nostr using publsp!")
+    value_prop: Optional[str] = Field(default="No frills liquidity offer over Nostr using publsp!")
+    sum_utxos_as_max_capacity: Optional[bool] = Field(default=False)
+    channel_max_bucket: Optional[int] = Field(default=5000000)
+    dynamic_fixed_cost: Optional[bool] = Field(default=False)
+    dynamic_fixed_cost_conf_target: Optional[int] = Field(default=2)
+    dynamic_fixed_cost_vb_multiplier: Optional[int] = Field(default=320)
+
+    @field_validator('dynamic_fixed_cost_conf_target', mode='after')
+    def validate_min_dynamic_fixed_cost_conf_target(v: Optional[int]) -> Optional[int]:
+        if not v:
+            return
+        if v < 2:
+            raise ValueError('dynamic_fixed_cost_conf_target must be greater than or equal to 2')
+        return v
 
 
 class OrderSettings(PublspSettings):

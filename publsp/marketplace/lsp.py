@@ -27,6 +27,7 @@ from publsp.ln.requesthandlers import (
     GetNodeSummaryResponse,
     Preimage,
 )
+from publsp.ln.utils import spend_all_cost
 from publsp.marketplace.base import AdEventData, MarketplaceAgent
 from publsp.nostr.client import NostrClient
 from publsp.nostr.kinds import PublspKind
@@ -108,7 +109,7 @@ class AdHandler(MarketplaceAgent):
     async def publish_ad(
             self,
             status: AdStatus = AdStatus.ACTIVE,
-            content: str = '') -> None:
+            **kwargs) -> None:
         """
         currently only set up to publish one ad and sets the single event to
         the active_ads attributes
@@ -117,14 +118,39 @@ class AdHandler(MarketplaceAgent):
         pubkey, this could be done by the user specifying the parameters in a
         json file (and cli helper to create those ads in a json file) for each
         distinct ad they want to make
+
+        kwargs here is strictly used to overwrite any self.options
         """
         node_stats = await self.get_lsp_data()
-        lsp_ad = await self.build_ad(pubkey=node_stats.pubkey, **self.options)
+        ad_fields = {**self.options, **kwargs}
+        lsp_ad = await self.build_ad(pubkey=node_stats.pubkey, **ad_fields)
+        # adjust status and max capacity fields
         lsp_ad.status = status
+        channel_max_bucket = self.options.get('channel_max_bucket', CustomAdSettings().channel_max_bucket)
+        sum_utxos_as_max_capacity = self.options.get('sum_utxos_as_max_capacity', CustomAdSettings().sum_utxos_as_max_capacity)
+        adjusted_max_capacity = await self.adjust_ad_max_capacity(
+            ad=lsp_ad,
+            channel_max_bucket=channel_max_bucket,
+            sum_utxos_as_max_capacity=sum_utxos_as_max_capacity
+        )
+        if not adjusted_max_capacity:
+            # short circuit: utxo set insufficient to sell channel as advertise
+            logger.warning('max capacity < min_capacity, cannot publish ad')
+            if self.active_ads:
+                logger.info('inactivating ads since max capacity < min capacity')
+                await self.inactivate_ads()
+            return
+        dynamically_set_fixed_cost = self.options.get('dynamic_fixed_cost')
+        if dynamically_set_fixed_cost:
+            lsp_ad.fixed_cost_sats = await self.adjust_fixed_cost()
+        lsp_ad.max_channel_balance_sat = adjusted_max_capacity
+        lsp_ad.max_initial_lsp_balance_sat = adjusted_max_capacity
+
+        # build the event components
         ad_tags = lsp_ad.model_dump_tags()
         # assemble custom content
         ad_content = {
-            'lsp_message': content,
+            'lsp_message': self.options.get('value_prop', CustomAdSettings().value_prop),
             'node_stats': node_stats.model_dump_str(
                 exclude={"error_message", "pubkey"}),
         }
@@ -140,9 +166,7 @@ class AdHandler(MarketplaceAgent):
         ad_events = {lsp_ad.d: event}
         self.active_ads = AdEventData(ads=ads, ad_events=ad_events)
 
-    async def update_ad_events(
-            self,
-            update_type: Literal['inactivate', 'delete'] = 'inactivate') -> None:
+    async def inactivate_ads(self, update_type: Literal['inactivate', 'delete'] = 'inactivate') -> None:
         """
         update an event to either set 'inactive' or simply request deletion
 
@@ -154,37 +178,98 @@ class AdHandler(MarketplaceAgent):
         """
         if not self.active_ads:
             return
-        for ad in self.active_ads.ads.values():
-            # build the tags
-            tags_dict = {
-                "e": ad.d,
-                "k": str(self.kind.AD.value)
-            }
-            tags = [
-                Tag.parse([tag, value])
-                for tag, value in tags_dict.items()
+        for ad_id, ad_event in self.active_ads.ad_events.items():
+            # first fetch tags from the existing event
+            ad_tags = [
+                tag
+                if not tag.kind().is_status()
+                else Tag.parse(['status', 'inactive'])
+                for tag in ad_event.tags().to_vec()
             ]
-            # build the event with the kind, content, tags and sign with keys
-            content = "updating ad"
-
-            if update_type == 'inactivate':
-                await self.publish_ad(content=content, status=AdStatus.INACTIVE)
-                continue
-
-            # else send deletion request
+            content = ad_event.content()
+            event_kind = self.kind.AD.as_kind_obj \
+                if update_type == 'inactivate' \
+                else Kind.from_std(KindStandard.EVENT_DELETION)
+            # build an event with the tags, content, kind
             event = self.nostr_client.build_event(
-                tags=tags,
+                tags=ad_tags,
                 content=content,
-                kind=Kind.from_std(KindStandard.EVENT_DELETION)
+                kind=event_kind
             )
+
             output = await self.nostr_client.send_event(event)
             if output.success:
-                logger.info(f'Ad {ad.d} deleted')
-                self.active_ads = None
+                logger.info(f'successfully sent {update_type} event for ad {ad_id}')
             else:
-                logger.error(f'error deleting ad {ad.d}')
+                logger.error(f'error sending {update_type} event for ad {ad_id}')
+                continue
+
+            if update_type == 'inactivate':
+                self.active_ads.ads[ad_id].status = AdStatus.INACTIVE
+                self.active_ads.ad_events[ad_id] = event
+            else:
+                del self.active_ads.ads[ad_id]
+                del self.active_ads.ad_events[ad_id]
 
         return
+
+    async def adjust_fixed_cost(self) -> int:
+        try:
+            conf_target = self.options.get('dynamic_fixed_cost_conf_target', 2)
+            fee_multiplier = self.options.get('dynamic_fixed_cost_vb_multiplier', 320)
+            chain_fees = await self.ln_backend.estimate_chain_fee(conf_target=conf_target)
+            return round(chain_fees.sat_per_vb * fee_multiplier)
+        except Exception as e:
+            logger.error(f'could not fetch adjusted fix cost: {e}')
+            fallback = round(self.options.get('fixed_cost_sats', 1000))
+            logger.error(f'using fallback value of {fallback} sats')
+            return fallback
+
+    async def adjust_ad_max_capacity(
+            self,
+            ad: Ad,
+            channel_max_bucket: int = CustomAdSettings().channel_max_bucket,
+            sum_utxos_as_max_capacity: bool = CustomAdSettings().sum_utxos_as_max_capacity) -> float:
+        """
+        set the max capacity for ads as a function of the utxo set.
+        Ad.max_channel_balance_sat is the default, but user may want to adjust
+        to the sum of utxo set, or may need to adjust if sum of utxo set is
+        less than `Ad.max_channel_balance_sat` but greater than
+        `Ad.min_channel_balance_sat`
+
+        1) return None if sum of confirmed utxos is less than min
+        or 2) set the max channel size as the sum of confirmed utxos (only if
+        `sum_utxos_as_max_capacity` is True). this takes into account reserve
+        and cost of spending all utxos,
+        or 3) modify the existing max if the sum of confirmed utxos is less than
+        current max (rounded down to `channel_max_bucket`)
+        or 4) return the original max capacity
+        """
+        try:
+            utxos = await self.ln_backend.get_utxo_set()
+            reserve = await self.ln_backend.get_reserve_amount()
+            chain_fees = await self.ln_backend.estimate_chain_fee()
+            # get cost of spending all utxos as buffer
+            all_utxos_spend_cost = spend_all_cost(
+                inputs=utxos.utxos,
+                chain_fee_sat_vb=chain_fees.sat_per_vb,
+                num_outputs=2)
+            available_funds = round(utxos.spendable_amount \
+                - reserve.required_reserve \
+                - all_utxos_spend_cost)
+
+            if available_funds < ad.min_channel_balance_sat:
+                return None
+            if sum_utxos_as_max_capacity:
+                return available_funds
+            if available_funds < ad.max_channel_balance_sat:
+                new_max_capacity = available_funds - (available_funds % channel_max_bucket)
+                return new_max_capacity
+
+            return ad.max_channel_balance_sat
+        except Exception as e:
+            logger.error(f'could not get adjusted max capacity, returning None to inactivate ad: {e}')
+            return None
 
     async def reload(self):
         """Reload the ad_handler with new AdSettings from .env file."""
@@ -258,7 +343,8 @@ class OrderHandler:
             )
 
         # verify that we have enough funds to fill the order
-        # need sum of confirmed utxos, less reserve amount, to be greater than
+        # need sum of confirmed utxos, less reserve amount, less chain fees
+        # needed if all utxos needed to be spent, to be greater than
         # order total capacity
         utxos = await self.ln_backend.get_utxo_set()
         buyer_msg = "LSP could not successfully fill order at this moment, please try again later"
@@ -269,7 +355,15 @@ class OrderHandler:
                 error_message=buyer_msg
             )
         reserve = await self.ln_backend.get_reserve_amount()
-        if utxos.spendable_amount - reserve.required_reserve < order.total_capacity:
+        chain_fees = await self.ln_backend.estimate_chain_fee()
+        # assume P2WPKH, cost to send all utxos to 2 outputs is tx header (10.5vB)
+        # + 2 outputs (2*31 vB) + num_utxos * 68vB
+        all_utxos_spend_cost = (10.5 + 2 * 31 + 68 * utxos.num_utxos) * chain_fees.sat_per_vb
+        can_utxo_set_fill_order = round(utxos.spendable_amount \
+            - reserve.required_reserve \
+            - all_utxos_spend_cost) \
+                < order.total_capacity
+        if can_utxo_set_fill_order:
             logger.error("order total capacity greater than available utxo set")
             return OrderErrorResponse(
                 code=OrderErrorCode.invalid_params,
@@ -355,8 +449,12 @@ class OrderHandler:
                 f"Channel status update",
                 rumor_extra_tags=update.model_dump_tags(),
             )
+            logger.info(f'Channel state is now {state}')
+            if state == ChannelState.PENDING:
+                # channel pending implies change in utxo set so publish a new
+                # ad if needed
+                await self.ad_handler.publish_ad()
             if state == ChannelState.OPEN:
-                logger.info(f'Channel state is now {state}')
                 # finally release the invoice preimage
                 await self.ln_backend.settle_hodl_invoice(preimage.base64)
                 # send a message saying payment settled
@@ -372,6 +470,8 @@ class OrderHandler:
                     preimage=preimage,
                     channel_point=channel_point
                 )
+                # update the ad now that we have some newly confirmed utxos
+                await self.ad_handler.publish_ad()
                 return
 
             if state == ChannelState.UNKNOWN:

@@ -113,8 +113,10 @@ lncli bakemacaroon --save_to /path/to/lnd/data/chain/bitcoin/mainnet/publsp.maca
 	uri:/lnrpc.Lightning/ConnectPeer \
 	uri:/lnrpc.Lightning/GetInfo \
 	uri:/lnrpc.Lightning/GetNodeInfo \
+	uri:/lnrpc.Lightning/ListPermissions \
 	uri:/lnrpc.Lightning/OpenChannel \
 	uri:/lnrpc.Lightning/SignMessage \
+	uri:/walletrpc.WalletKit/EstimateFee \
 	uri:/walletrpc.WalletKit/ListUnspent \
 	uri:/walletrpc.WalletKit/RequiredReserve
 

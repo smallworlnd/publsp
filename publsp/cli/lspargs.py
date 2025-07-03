@@ -152,6 +152,21 @@ from pydantic import ValidationError
     help="flat sats fee to open channel"
 )
 @click.option(
+    "--dynamic-fixed-cost",
+    "dynamic_fixed_cost",
+    is_flag=True,
+    help="use this flag to dynamically set the fixed cost based on chain fees "
+    "instead of setting a value for --fixed-cost. see the .env.example for "
+    "ways to modify the formula for calculating dynamic fixed costs"
+)
+@click.option(
+    "--sum-of-utxos-as-max-capacity",
+    "sum_utxos_as_max_capacity",
+    is_flag=True,
+    help="use this flag to dynamically set the max channel capacity as the "
+    "sum of utxos in the wallet (less reserve and on-chain fees)"
+)
+@click.option(
     "--variable-cost",
     "variable_cost_ppm",
     type=int,

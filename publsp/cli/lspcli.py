@@ -2,11 +2,11 @@ import asyncio
 import click
 import os
 import signal
-from functools import partial
 from pathlib import Path
 from typing import Callable, Awaitable
 
 from publsp.cli.basecli import BaseCLI
+from publsp.cli.lsputils import HealthChecker
 from publsp.ln.lnd import LndBackend
 # from publsp.ln.cln import ClnBackend  # not yet implemented
 from publsp.nostr.client import NostrClient
@@ -34,13 +34,13 @@ class LspCLI(BaseCLI):
         self.daemon_mode = kwargs.get('daemon')
         self.lease_history_file_path = kwargs.get('lease_history_file_path')
         msg = kwargs.get('value_prop')
-        self.marketing_content = msg if msg else CustomAdSettings().value_prop
 
         rest_host = kwargs.get('rest_host')
         permissions_file_path = kwargs.get('permissions_file_path')
         cert_file_path = kwargs.get('cert_file_path')
         ln_backend = kwargs.get('node')
         reuse_keys = kwargs.get("reuse_keys")
+        health_check_time = kwargs.get('health_check_time')
 
         # core services
         if ln_backend == LnImplementation.LND:
@@ -70,18 +70,20 @@ class LspCLI(BaseCLI):
             nostr_client=self.nostr_client,
             lease_history_file_path=self.lease_history_file_path
         )
+        self.health_checker = HealthChecker(
+            ln_backend=self.ln_backend,
+            ad_handler=self.ad_handler,
+            health_check_time=health_check_time
+        )
 
         self._env_file_mtime = None
         self._env_watcher_task = None
 
         # menu command registry: key -> (description, coroutine handler)
         self.commands: dict[str, tuple[str, Callable[[], Awaitable[None]]]] = {
-            "1": (
-                "Publish ad",
-                partial(self.cmd_publish_ad, self.marketing_content),
-            ),
+            "1": ("Publish ad", self.cmd_publish_ad),
             "2": ("View active ad", self.cmd_view_ad),
-            "3": ("Inactivate ads", self.cmd_update_ad),
+            "3": ("Inactivate ads", self.cmd_inactivate_ad),
             "4": ("Exit", self.cmd_exit),
         }
 
@@ -99,6 +101,7 @@ class LspCLI(BaseCLI):
             raise Exception(f'could not verify permissions: {perms_check.error_message}')
         if perms_check.invalid_perms:
             raise ValueError(f'missing the following URI permissions in macaroon: {perms_check.invalid_perms}')
+        await self.health_checker.start()
         await self.nostr_client.connect_relays()
         self.nip17_listener.start()
         self.order_handler.start()
@@ -112,8 +115,8 @@ class LspCLI(BaseCLI):
                 await self._env_watcher_task
             except asyncio.CancelledError:
                 pass
-
-        await self.ad_handler.update_ad_events()
+        await self.health_checker.stop()
+        await self.ad_handler.inactivate_ads()
         await self.order_handler.stop()
         await self.nip17_listener.stop()
         await self.nostr_client.disconnect_relays()
@@ -122,16 +125,16 @@ class LspCLI(BaseCLI):
     # Command handlers
     # ------------------------------------------
 
-    async def cmd_publish_ad(self, content: str = '') -> None:
-        await self.ad_handler.publish_ad(content=content)
+    async def cmd_publish_ad(self) -> None:
+        await self.ad_handler.publish_ad()
         click.echo("\nPublished ad:")
         self.render_active_ad()
 
     async def cmd_view_ad(self) -> None:
         self.render_active_ad()
 
-    async def cmd_update_ad(self) -> None:
-        await self.ad_handler.update_ad_events()
+    async def cmd_inactivate_ad(self) -> None:
+        await self.ad_handler.inactivate_ads()
         click.echo("\nAds updated to inactive")
 
     async def cmd_exit(self) -> None:
@@ -202,6 +205,7 @@ class LspCLI(BaseCLI):
                     await self.nostr_client.reload_relays()
                     self.ad_handler = await self.ad_handler.reload()
                     self.order_handler.ad_handler = self.ad_handler
+                    self.health_checker.ad_handler = self.ad_handler
                     self.render_active_ad()
 
         except asyncio.CancelledError:
@@ -222,7 +226,7 @@ class LspCLI(BaseCLI):
         try:
             if self.daemon_mode:
                 self.setup_signal_handlers()
-                await self.cmd_publish_ad(content=self.marketing_content)
+                await self.cmd_publish_ad()
                 logger.info("Ad published")
                 logger.info("Running in daemon mode")
                 logger.info("Press Ctrl+C or send SIGTERM to cleanly stop")

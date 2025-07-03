@@ -13,6 +13,7 @@ from publsp.ln.requesthandlers import (
     ChannelState,
     ChannelOpenResponse,
     ConnectPeerResponse,
+    EstimateChainFeeResponse,
     HodlInvoiceResponse,
     HodlInvoiceState,
     GetBestBlockResponse,
@@ -63,12 +64,23 @@ class LndBackend(NodeBase):
         """
         macaroon_raw = bytes.fromhex(self.macaroon.decode())
         macaroon_base64 = base64.urlsafe_b64encode(macaroon_raw).decode()
+        lnd_perms = await self.list_permissions()
+        if not lnd_perms:
+            msg = "failed to get lnd permissions list, either the macaroon is missing uri:/lnrpc.Lightning/ListPermissions or there was a connection error"
+            logger.error(msg)
+            return MacaroonPermissionsResponse(error_message=msg)
         invalid_perms = []
         valid_perms = []
 
         try:
-            for method in methods:
-                data = {'macaroon': macaroon_base64, 'fullMethod': method}
+            for uri_method in methods:
+                method = uri_method.removeprefix('uri:')
+                method_perms = lnd_perms[method]['permissions']
+                data = {
+                    'macaroon': macaroon_base64,
+                    'permissions': method_perms,
+                    'fullMethod': method,
+                }
                 r = await self.http_client.post('/v1/macaroon/checkpermissions', json=data)
                 resp = r.json()
                 perm_validated = resp.get('valid')
@@ -85,6 +97,28 @@ class LndBackend(NodeBase):
             valid_perms=valid_perms,
             invalid_perms=invalid_perms
         )
+
+    async def list_permissions(self) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
+        """
+        https://lightning.engineering/api-docs/api/lnd/lightning/list-permissions/
+
+        /lnrpc.Lightning/ListPermissions
+        """
+        try:
+            r = await self.http_client.get('/v1/macaroon/permissions')
+        except Exception as e:
+            raise Exception(f"failed to get permissions list: {e}")
+
+        if r.is_error:
+            logger.error(r.text)
+            return None
+
+        resp = r.json()
+
+        method_permissions = resp.get('method_permissions')
+        if method_permissions:
+            return method_permissions
+        return None
 
     async def check_node_connection(self) -> NodeStatusResponse:
         """
@@ -184,6 +218,31 @@ class LndBackend(NodeBase):
             return WalletReserveResponse(required_reserve=reserve)
 
         return WalletReserveResponse(required_reserve=0)
+
+    async def estimate_chain_fee(self, conf_target: int = 2) -> EstimateChainFeeResponse:
+        """
+        https://lightning.engineering/api-docs/api/lnd/wallet-kit/estimate-fee/
+
+        /walletrpc.WalletKit/EstimateFee
+        """
+        try:
+            r = await self.http_client.get(f'/v2/wallet/estimatefee/{conf_target}')
+        except Exception as e:
+            logger.error(f'exception occurred in estimating chain fee: {e}')
+            return EstimateChainFeeResponse(
+                error_message='exception occurred in estimate chain fee from ln backend, ignoring'
+            )
+
+        conf_target_kw = r.json().get('sat_per_kw')
+        if conf_target_kw:
+            return EstimateChainFeeResponse(
+                sat_per_kw=conf_target_kw,
+                min_relay_fee_sat_per_kw=r.json().get('min_relay_fee_sat_per_kw')
+            )
+
+        msg = 'got empty response from estimate fee, maybe macaroon perms issue'
+        logger.error(msg)
+        return EstimateChainFeeResponse(error_message=msg)
 
     async def get_best_block(self) -> GetBestBlockResponse:
         """
