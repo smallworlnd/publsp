@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.4.17'
+VERSION = '0.4.18'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -323,7 +323,7 @@ class CustomAdSettings(PublspSettings):
     channel_max_bucket: Optional[int] = Field(default=5000000)
     dynamic_fixed_cost: Optional[bool] = Field(default=False)
     dynamic_fixed_cost_conf_target: Optional[int] = Field(default=2)
-    dynamic_fixed_cost_vb_multiplier: Optional[int] = Field(default=320)
+    dynamic_fixed_cost_vb_multiplier: Optional[int] = Field(default=15000)
 
     @field_validator('dynamic_fixed_cost_conf_target', mode='after')
     def validate_min_dynamic_fixed_cost_conf_target(v: Optional[int]) -> Optional[int]:

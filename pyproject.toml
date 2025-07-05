@@ -1,6 +1,6 @@
 [project]
 name = "publsp"
-version = "0.4.17"
+version = "0.4.18"
 description = "A rough implementation of the bLIP51, inspired by NIP-15/69/99 spec mediated through Nostr"
 license = { text = "MIT" }
 authors = [

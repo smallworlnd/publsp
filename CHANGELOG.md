@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.4.18] - 2025-07-05
+
+- increased default dynamic fixed sat vB multiplier
+- fixed missing alias bug (266d9df)
+- refactored lsp build_ad and publish_ad (befa42d)
+
 ## [v0.4.17] - 2025-07-03
 
 - added health checker to periodically verify ln node and adjust ad based on health and state of utxos with respect to posted min/max channel parameters; added option to dynamically set max channel based on confirmed utxos (less reserve and chain fees) as well as an option to dynamically set fixed cost based on chain fees (exposing some fields for the .env file to control the formula) (3c9522c)
