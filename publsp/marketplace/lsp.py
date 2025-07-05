@@ -111,6 +111,7 @@ class AdHandler(MarketplaceAgent):
             **kwargs,
             'd': ad_id,
             'lsp_pubkey': node_stats.pubkey,
+            'alias': node_stats.alias,
             'max_channel_balance_sat': adjusted_max_capacity,
             'fixed_cost_sats': fixed_cost,
             'lsp_sig': lsp_sig,
@@ -168,6 +169,7 @@ class AdHandler(MarketplaceAgent):
         ad_content = {
             'lsp_message': self.options.get('value_prop', CustomAdSettings().value_prop),
             'node_stats': {
+                'alias': node_stats.alias,
                 'total_capacity': node_stats.total_capacity,
                 'num_channels': node_stats.num_channels,
                 'median_outbound_ppm': node_stats.median_outbound_ppm,
