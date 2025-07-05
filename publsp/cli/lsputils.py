@@ -50,6 +50,10 @@ class HealthChecker:
                         if ad.status != AdStatus.ACTIVE:
                             logger.info("republishing ads")
                             await self.ad_handler.publish_ad()
+                        else:
+                            updated_ad = await self.ad_handler.build_ad(**self.ad_handler.options)
+                            if updated_ad != ad:
+                                await self.ad_handler.publish_ad()
                 else:
                     logger.error(f"ln node connection NOT healthy: {connection_status}")
                     ad_statuses = [ad.status for ad in self.ad_handler.active_ads.ads.values()]

@@ -1,6 +1,8 @@
 # Changelog
 
-## [v0.4.17]
+## [v0.4.17] - 2025-07-03
+
+- added health checker to periodically verify ln node and adjust ad based on health and state of utxos with respect to posted min/max channel parameters; added option to dynamically set max channel based on confirmed utxos (less reserve and chain fees) as well as an option to dynamically set fixed cost based on chain fees (exposing some fields for the .env file to control the formula) (3c9522c)
 
 ## [v0.4.16] - 2025-06-27
 

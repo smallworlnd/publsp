@@ -33,7 +33,6 @@ class LspCLI(BaseCLI):
         self.shutdown_event = None  # created when event loop is running
         self.daemon_mode = kwargs.get('daemon')
         self.lease_history_file_path = kwargs.get('lease_history_file_path')
-        msg = kwargs.get('value_prop')
 
         rest_host = kwargs.get('rest_host')
         permissions_file_path = kwargs.get('permissions_file_path')

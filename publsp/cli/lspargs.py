@@ -245,6 +245,12 @@ def lspargs(**kwargs):
     if kwargs.get('no_private_channels'):
         settings.supports_private_channels = False
 
+    if kwargs.get('sum_utxos_as_max_capacity') or CustomAdSettings().sum_utxos_as_max_capacity:
+        settings.sum_utxos_as_max_capacity = True
+
+    if kwargs.get('dynamic_fixed_cost') or CustomAdSettings().dynamic_fixed_cost:
+        settings.dynamic_fixed_cost = True
+
     # 3) Fire up the CLI
     try:
         asyncio.run(run_lsp_cli(**settings.model_dump()))

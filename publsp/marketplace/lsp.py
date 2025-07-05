@@ -72,7 +72,7 @@ class AdHandler(MarketplaceAgent):
 
         return uuid_value
 
-    async def build_ad(self, pubkey: str, **kwargs) -> Ad:
+    async def build_ad(self, **kwargs) -> Ad:
         """
         build an ad given the cli arguments (**kwargs) and pubkey pulled from
         ln node backend
@@ -80,14 +80,48 @@ class AdHandler(MarketplaceAgent):
         idea would be to create multiple different ads by running a uuid5 on
         the parameter set or something like that to set as `ad_id`
         """
-        ad_id = self.generate_ad_id(pubkey=pubkey)
-        lsp_ad = Ad(lsp_pubkey=pubkey, d=ad_id, **kwargs)
+        # collect all the ad info
+        node_stats = await self.get_lsp_data()
+        ad_id = self.generate_ad_id(pubkey=node_stats.pubkey)
+
+        min_channel_balance_sat = kwargs.get('min_channel_balance_sat')
+        max_channel_balance_sat = kwargs.get('max_channel_balance_sat')
+        channel_max_bucket = kwargs.get('channel_max_bucket')
+        sum_utxos_as_max_capacity = kwargs.get('sum_utxos_as_max_capacity')
+        adjusted_max_capacity = await self.adjust_ad_max_capacity(
+            min_capacity=min_channel_balance_sat,
+            max_capacity=max_channel_balance_sat,
+            channel_max_bucket=channel_max_bucket,
+            sum_utxos_as_max_capacity=sum_utxos_as_max_capacity
+        )
+        static_fixed_cost = kwargs.get('fixed_cost_sats')
+        dynamically_set_fixed_cost = kwargs.get('dynamic_fixed_cost')
+        fixed_cost = await self.adjust_fixed_cost() \
+            if dynamically_set_fixed_cost \
+            else static_fixed_cost
+
         include_sig_in_ad = kwargs.get('include_node_sig')
+        lsp_sig = None
         if include_sig_in_ad:
             nostr_pubkey = self.nostr_client.key_handler.keys.public_key().to_hex()
             lsp_sig = await self.ln_backend.sign_message(message=nostr_pubkey)
-            lsp_ad.lsp_sig = lsp_sig.signature
-        return lsp_ad
+            lsp_sig = lsp_sig.signature
+
+        ad_fields = {
+            **kwargs,
+            'd': ad_id,
+            'lsp_pubkey': node_stats.pubkey,
+            'max_channel_balance_sat': adjusted_max_capacity,
+            'fixed_cost_sats': fixed_cost,
+            'lsp_sig': lsp_sig,
+        }
+        # build the ad object
+        try:
+            lsp_ad = Ad(**ad_fields)
+            return lsp_ad
+        except Exception as e:
+            logger.error(f'could not build an ad: {e}')
+            return None
 
     async def get_lsp_data(self) -> GetNodeSummaryResponse:
         """
@@ -108,8 +142,7 @@ class AdHandler(MarketplaceAgent):
 
     async def publish_ad(
             self,
-            status: AdStatus = AdStatus.ACTIVE,
-            **kwargs) -> None:
+            status: AdStatus = AdStatus.ACTIVE) -> None:
         """
         currently only set up to publish one ad and sets the single event to
         the active_ads attributes
@@ -118,41 +151,28 @@ class AdHandler(MarketplaceAgent):
         pubkey, this could be done by the user specifying the parameters in a
         json file (and cli helper to create those ads in a json file) for each
         distinct ad they want to make
-
-        kwargs here is strictly used to overwrite any self.options
         """
         node_stats = await self.get_lsp_data()
-        ad_fields = {**self.options, **kwargs}
-        lsp_ad = await self.build_ad(pubkey=node_stats.pubkey, **ad_fields)
-        # adjust status and max capacity fields
-        lsp_ad.status = status
-        channel_max_bucket = self.options.get('channel_max_bucket', CustomAdSettings().channel_max_bucket)
-        sum_utxos_as_max_capacity = self.options.get('sum_utxos_as_max_capacity', CustomAdSettings().sum_utxos_as_max_capacity)
-        adjusted_max_capacity = await self.adjust_ad_max_capacity(
-            ad=lsp_ad,
-            channel_max_bucket=channel_max_bucket,
-            sum_utxos_as_max_capacity=sum_utxos_as_max_capacity
-        )
-        if not adjusted_max_capacity:
-            # short circuit: utxo set insufficient to sell channel as advertise
-            logger.warning('max capacity < min_capacity, cannot publish ad')
+        lsp_ad = await self.build_ad(**self.options)
+        if not lsp_ad:
             if self.active_ads:
                 logger.info('inactivating ads since max capacity < min capacity')
                 await self.inactivate_ads()
             return
-        dynamically_set_fixed_cost = self.options.get('dynamic_fixed_cost')
-        if dynamically_set_fixed_cost:
-            lsp_ad.fixed_cost_sats = await self.adjust_fixed_cost()
-        lsp_ad.max_channel_balance_sat = adjusted_max_capacity
-        lsp_ad.max_initial_lsp_balance_sat = adjusted_max_capacity
+        # adjust status and max capacity fields
+        lsp_ad.status = status
 
         # build the event components
         ad_tags = lsp_ad.model_dump_tags()
         # assemble custom content
         ad_content = {
             'lsp_message': self.options.get('value_prop', CustomAdSettings().value_prop),
-            'node_stats': node_stats.model_dump_str(
-                exclude={"error_message", "pubkey"}),
+            'node_stats': {
+                'total_capacity': node_stats.total_capacity,
+                'num_channels': node_stats.num_channels,
+                'median_outbound_ppm': node_stats.median_outbound_ppm,
+                'median_inbound_ppm': node_stats.median_inbound_ppm,
+            },
         }
         # build the nostr event using the ad
         event = self.nostr_client.build_event(
@@ -227,7 +247,8 @@ class AdHandler(MarketplaceAgent):
 
     async def adjust_ad_max_capacity(
             self,
-            ad: Ad,
+            min_capacity: int,
+            max_capacity: int,
             channel_max_bucket: int = CustomAdSettings().channel_max_bucket,
             sum_utxos_as_max_capacity: bool = CustomAdSettings().sum_utxos_as_max_capacity) -> float:
         """
@@ -258,15 +279,15 @@ class AdHandler(MarketplaceAgent):
                 - reserve.required_reserve \
                 - all_utxos_spend_cost)
 
-            if available_funds < ad.min_channel_balance_sat:
+            if available_funds < min_capacity:
                 return None
             if sum_utxos_as_max_capacity:
                 return available_funds
-            if available_funds < ad.max_channel_balance_sat:
+            if available_funds < max_capacity:
                 new_max_capacity = available_funds - (available_funds % channel_max_bucket)
                 return new_max_capacity
 
-            return ad.max_channel_balance_sat
+            return max_capacity
         except Exception as e:
             logger.error(f'could not get adjusted max capacity, returning None to inactivate ad: {e}')
             return None
@@ -299,7 +320,7 @@ class AdHandler(MarketplaceAgent):
                 ln_backend=self.ln_backend,
                 **updated_kwargs,
             )
-            await new_ad_handler.publish_ad(content=new_options['value_prop'])
+            await new_ad_handler.publish_ad()
 
             # check to make sure we published the new events and so we can
             # modify the live objects
