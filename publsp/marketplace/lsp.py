@@ -156,8 +156,8 @@ class AdHandler(MarketplaceAgent):
         node_stats = await self.get_lsp_data()
         lsp_ad = await self.build_ad(**self.options)
         if not lsp_ad:
-            if self.active_ads:
-                logger.info('inactivating ads since max capacity < min capacity')
+            if hasattr(self.active_ads, 'ads'):
+                logger.debug('inactivating ads due to problem with ad validation')
                 await self.inactivate_ads()
             return
         # adjust status and max capacity fields
@@ -282,6 +282,9 @@ class AdHandler(MarketplaceAgent):
                 - all_utxos_spend_cost)
 
             if available_funds < min_capacity:
+                logger.error(
+                    f'available funds with 3 confs or more {available_funds}'
+                    f'is less than ad min capacity {min_capacity}, cannot publish')
                 return None
             if sum_utxos_as_max_capacity:
                 return available_funds

@@ -226,7 +226,6 @@ class LspCLI(BaseCLI):
             if self.daemon_mode:
                 self.setup_signal_handlers()
                 await self.cmd_publish_ad()
-                logger.info("Ad published")
                 logger.info("Running in daemon mode")
                 logger.info("Press Ctrl+C or send SIGTERM to cleanly stop")
 

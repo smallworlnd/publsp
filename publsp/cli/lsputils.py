@@ -39,13 +39,21 @@ class HealthChecker:
             logger.debug("running ln node health check...")
             try:
                 connection_status = await self.ln_backend.check_node_connection()
+                has_published_ads = hasattr(self.ad_handler.active_ads, 'ads')
 
                 if connection_status.healthy:
                     logger.debug(f"ln node is healthy: {connection_status}")
-                    if not self.ad_handler.active_ads:
+                    if not has_published_ads:
                         # if no active ads it's likely at startup so skip the
                         # check and wait the health check time
                         await asyncio.sleep(self.health_check_time)
+                        # check again
+                        if not has_published_ads:
+                            try:
+                                await self.ad_handler.publish_ad()
+                            except Exception as e:
+                                logger.error(f'no ads currently saved and could not new publish ad: {e}')
+                        continue
                     for ad in self.ad_handler.active_ads.ads.values():
                         if ad.status != AdStatus.ACTIVE:
                             logger.info("republishing ads")
@@ -56,20 +64,25 @@ class HealthChecker:
                                 await self.ad_handler.publish_ad()
                 else:
                     logger.error(f"ln node connection NOT healthy: {connection_status}")
-                    ad_statuses = [ad.status for ad in self.ad_handler.active_ads.ads.values()]
-                    if AdStatus.ACTIVE in ad_statuses:
-                        logger.warning('deactivating ad until ln node becomes healthy again')
-                        await self.ad_handler.inactivate_ads()
+                    if has_published_ads:
+                        ad_statuses = [ad.status for ad in self.ad_handler.active_ads.ads.values()]
+                        if AdStatus.ACTIVE in ad_statuses:
+                            logger.warning('deactivating ad until ln node becomes healthy again')
+                            await self.ad_handler.inactivate_ads()
+                    logger.debug('no ads to deactivate')
                 logger.debug(f'checking again in {self.health_check_time}s')
             except Exception as e:
                 logger.error(f"Error during Lightning Node health check: {e}")
                 try:
-                    ad_statuses = [ad.status for ad in self.ad_handler.active_ads.ads.values()]
-                    # if any ads are active, then send an updated ad event to
-                    # inactivate them
-                    if AdStatus.ACTIVE in ad_statuses:
-                        logger.warning('Deactivating ads until node becomes healthy')
-                        await self.ad_handler.inactivate_ads()
+                    if hasattr(self.ad_handler.active_ads, 'ads'):
+                        ad_statuses = [ad.status for ad in self.ad_handler.active_ads.ads.values()]
+                        # if any ads are active, then send an updated ad event to
+                        # inactivate them
+                        if AdStatus.ACTIVE in ad_statuses:
+                            logger.warning('Deactivating ads until node becomes healthy')
+                            await self.ad_handler.inactivate_ads()
+                    else:
+                        logger.warning(f'no ads to inactivate')
                 except Exception as err:
                     logger.error(f'could not update ad events with inactivate: {err}')
                 logger.info(f'checking again in {self.health_check_time}s')
