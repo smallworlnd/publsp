@@ -18,7 +18,7 @@ from pydantic_settings.sources.providers.dotenv import DotEnvSettingsSource
 from typing import List, Optional
 from typing_extensions import Annotated
 
-VERSION = '0.4.19'
+VERSION = '0.4.20'
 AD_ID_REGEX = r'(?:[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})?'
 ONION_RE = re.compile(r"^(?:[a-z2-7]{16}|[a-z2-7]{56})\.onion$", re.IGNORECASE)
 PUBKEY_RE = re.compile(r"^[0-9A-Fa-f]{66}$")
@@ -251,7 +251,7 @@ class AdSettings(PublspSettings):
     supports_private_channels: bool = Field(default=True)
     max_channel_expiry_blocks: int = Field(default=12960)
     min_initial_client_balance_sat: int = Field(default=0)
-    max_initial_client_balance_sat: int = Field(default=10000000)
+    max_initial_client_balance_sat: int = Field(default=1)
     min_initial_lsp_balance_sat: int = Field(default=0)
     max_initial_lsp_balance_sat: int = Field(default=10000000)
     min_channel_balance_sat: int = Field(default=1000000)
