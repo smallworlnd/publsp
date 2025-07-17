@@ -476,6 +476,7 @@ class OrderHandler:
                 rumor_extra_tags=update.model_dump_tags(),
             )
             logger.info(f'Channel state is now {state}')
+            logger.info(f'preimage: {preimage}')
             if state == ChannelState.PENDING:
                 # channel pending implies change in utxo set so publish a new
                 # ad if needed
