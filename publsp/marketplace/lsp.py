@@ -481,7 +481,7 @@ class OrderHandler:
                 # channel pending implies change in utxo set so publish a new
                 # ad if needed
                 await self.ad_handler.publish_ad()
-            if state == ChannelState.OPEN:
+            if state in [ChannelState.OPEN, ChannelState.CLOSED]:
                 # finally release the invoice preimage
                 await self.ln_backend.settle_hodl_invoice(preimage.base64)
                 # send a message saying payment settled

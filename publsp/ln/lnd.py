@@ -611,7 +611,7 @@ class LndBackend(NodeBase):
         data = {
           'node_pubkey': order.pubkey_base64,
           'local_funding_amount': str(order.total_capacity),
-          'push_sat': str(order.client_balance_sat),
+          #'push_sat': str(order.client_balance_sat),  # no push amount
           'private': False if order.announce_channel else True,
           # set these to defaults for now to get fastest confirmation times
           #'min_confs': order.required_channel_confirmations,

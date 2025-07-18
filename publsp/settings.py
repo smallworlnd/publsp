@@ -251,7 +251,7 @@ class AdSettings(PublspSettings):
     supports_private_channels: bool = Field(default=True)
     max_channel_expiry_blocks: int = Field(default=12960)
     min_initial_client_balance_sat: int = Field(default=0)
-    max_initial_client_balance_sat: int = Field(default=1)
+    max_initial_client_balance_sat: int = Field(default=0)
     min_initial_lsp_balance_sat: int = Field(default=0)
     max_initial_lsp_balance_sat: int = Field(default=10000000)
     min_channel_balance_sat: int = Field(default=1000000)
